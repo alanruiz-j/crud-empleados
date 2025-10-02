@@ -1,37 +1,59 @@
 <?php
-if (!empty($_GET['id'])) {
+
+if (isset($_GET['id']) && is_numeric($_GET['id'])) {
+    
     include '../modelo/conexion.php';
     $id_empleado = intval($_GET['id']);
 
+    // Iniciar una transacción
     $conn->begin_transaction();
 
     try {
-        // Primero obtenemos el ID_DOMICILIO para eliminar después
-        $res = $conn->query("SELECT ID_DOMICILIO FROM empleados WHERE ID_EMPLEADO = $id_empleado");
-        if ($res->num_rows === 0) {
-            throw new Exception("Empleado no encontrado.");
-        }
-        $row = $res->fetch_assoc();
-        $id_domicilio = $row['ID_DOMICILIO'];
+        // --- 1. Eliminar los correos asociados al empleado ---
+        // Se usa una sentencia preparada para mayor seguridad
+        $stmt_correos = $conn->prepare("DELETE FROM correos WHERE ID_EMPLEADO = ?");
+        $stmt_correos->bind_param("i", $id_empleado);
+        $stmt_correos->execute();
 
-        // Eliminar correos
-        $conn->query("DELETE FROM correos WHERE ID_EMPLEADO = $id_empleado");
+        // --- 2. Eliminar el domicilio asociado al empleado ---
+        $stmt_domicilio = $conn->prepare("DELETE FROM domicilios WHERE ID_EMPLEADO = ?");
+        $stmt_domicilio->bind_param("i", $id_empleado);
+        $stmt_domicilio->execute();
 
-        // Eliminar empleado
-        $conn->query("DELETE FROM empleados WHERE ID_EMPLEADO = $id_empleado");
-
-        // Eliminar domicilio
-        $conn->query("DELETE FROM domicilios WHERE ID_DOMICILIO = $id_domicilio");
-
+        // --- 3. Finalmente, eliminar al empleado ---
+        // Esto debe hacerse al final porque las otras tablas dependen de este ID.
+        $stmt_empleado = $conn->prepare("DELETE FROM empleados WHERE ID_EMPLEADO = ?");
+        $stmt_empleado->bind_param("i", $id_empleado);
+        $stmt_empleado->execute();
+        
+        // Si todas las eliminaciones fueron exitosas, se confirman los cambios
         $conn->commit();
-        echo "<script>alert('Empleado eliminado exitosamente.'); window.location.href='../lista-usuarios.php';</script>";
+
+        echo "<script>
+                alert('Empleado eliminado exitosamente.');
+                window.location.href = '../index.php';
+              </script>";
+
     } catch (Exception $e) {
+        // Si algo falla, se revierten todos los cambios
         $conn->rollback();
-        echo "<script>alert('Error al eliminar empleado: " . $e->getMessage() . "'); window.location.href='../lista-usuarios.php';</script>";
+        $error_message = json_encode("Error al eliminar el empleado: " . $e->getMessage());
+        
+        echo "<script>
+                alert('Error al eliminar el empleado: ' + $error_message);
+                window.location.href = '../index.php';
+              </script>";
     } finally {
-        $conn->close();
+        // Se cierra la conexión en cualquier caso
+        if (isset($conn)) {
+            $conn->close();
+        }
     }
+
 } else {
-    echo "<script>alert('ID de empleado no proporcionado.'); window.location.href='../lista-usuarios.php';</script>";
+    echo "<script>
+            alert('Acceso no autorizado o ID de empleado no válido.');
+            window.location.href = '../index.php';
+          </script>";
 }
 ?>
