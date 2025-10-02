@@ -1,5 +1,5 @@
 <?php
-session_start(); // ← AGREGAR ESTO AL INICIO
+session_start(); // Asegúrate de que la sesión esté iniciada
 
 if (!empty($_POST['guardar_empleado']) && $_POST['guardar_empleado'] == 'ok') {
 
@@ -30,29 +30,23 @@ if (!empty($_POST['guardar_empleado']) && $_POST['guardar_empleado'] == 'ok') {
         $municipio          = $_POST['municipio_empleado'];
         $fecha_contratacion = date('Y-m-d');
         $id_rol = 2; // Rol de operador
-        
-        // ← NUEVO: Obtener el ID del administrador que está registrando
         $contratante = isset($_SESSION['id_usuario']) ? $_SESSION['id_usuario'] : null;
 
-        // --- 2. Validación ---
+        // --- 2. Validación (básica, puedes agregar más) ---
         if (empty($nombre) || empty($genero) || empty($departamento) || empty($municipio)) {
             throw new Exception("Por favor, complete todos los campos obligatorios (*).");
         }
 
-        // --- 3. PRIMERO: Insertar empleado ---
-        // AGREGAR CONTRATANTE al INSERT
+        // --- 3. Insertar empleado ---
         $sql_empleado = "INSERT INTO empleados (NOMBRE_EMPLEADO, APELLIDO_PATERNO, APELLIDO_MATERNO, ID_GENERO, CURP_EMPLEADO, RFC_EMPLEADO, TELEFONO_EMPLEADO, CONTRATANTE, FECHA_CONTRATACION, ID_DEPARTAMENTO, ID_ROL) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         $stmt_empleado = $conn->prepare($sql_empleado);
-        
-        // AGREGAR $contratante al bind_param
         $stmt_empleado->bind_param("sssisssisii", $nombre, $apellido_paterno, $apellido_materno, $genero, $curp, $rfc, $telefono, $contratante, $fecha_contratacion, $departamento, $id_rol);
         $stmt_empleado->execute();
         $id_empleado_insertado = $conn->insert_id;
 
-        // --- 4. SEGUNDO: Insertar domicilio usando el ID del nuevo empleado ---
+        // --- 4. Insertar domicilio ---
         $sql_domicilio = "INSERT INTO domicilios (ID_EMPLEADO, CALLE, NUMERO_EXTERIOR, NUMERO_INTERIOR, COLONIA, ID_MUNICIPIO) VALUES (?, ?, ?, ?, ?, ?)";
         $stmt_domicilio = $conn->prepare($sql_domicilio);
-
         $stmt_domicilio->bind_param("issssi", $id_empleado_insertado, $calle, $numero_exterior, $numero_interior, $colonia, $municipio);
         $stmt_domicilio->execute();
         
@@ -75,10 +69,46 @@ if (!empty($_POST['guardar_empleado']) && $_POST['guardar_empleado'] == 'ok') {
         $conn->commit();
         echo "<script>alert('Empleado registrado exitosamente.'); window.location.href='../index.php';</script>";
 
+    } catch (mysqli_sql_exception $e) {
+        $conn->rollback();
+        // Guardar los datos del formulario para mostrarlos de nuevo
+        $_SESSION['form_data'] = $_POST;
+        $error_message = $e->getMessage();
+
+        // Verificar si el error es por una entrada duplicada (código 1062)
+        if ($e->getCode() == 1062) {
+            if (strpos($error_message, 'UQ_CURP_EMPLEADO') !== false) {
+                $_SESSION['errores']['curp_empleado'] = 'El CURP ingresado ya existe.';
+            } elseif (strpos($error_message, 'UQ_RFC_EMPLEADO') !== false) {
+                $_SESSION['errores']['rfc_empleado'] = 'El RFC ingresado ya existe.';
+            } elseif (strpos($error_message, 'UQ_TELEFONO_EMPLEADO') !== false) {
+                $_SESSION['errores']['telefono_empleado'] = 'El teléfono ingresado ya existe.';
+            } elseif (strpos($error_message, 'UQ_CORREO_EMPLEADO') !== false) {
+                // Verificar cuál de los correos es el duplicado
+                if (strpos($error_message, "'$correo_principal'") !== false) {
+                    $_SESSION['errores']['correo_principal_empleado'] = 'El correo principal ya existe.';
+                }
+                if (!empty($correo_secundario) && strpos($error_message, "'$correo_secundario'") !== false) {
+                    $_SESSION['errores']['correo_secundario_empleado'] = 'El correo secundario ya existe.';
+                }
+            } else {
+                $_SESSION['errores']['general'] = 'Error: Se ha producido un error de duplicado no identificado.';
+            }
+        } else {
+             $_SESSION['errores']['general'] = "Error de base de datos: " . $error_message;
+        }
+        
+        // Redirigir de vuelta al formulario
+        header('Location: ../index.php');
+        exit;
+
     } catch (Exception $e) {
         $conn->rollback();
-        $error_message = json_encode("Error: " . $e->getMessage());
-        echo "<script>alert('Error al registrar empleado: ' + $error_message); window.location.href='../index.php';</script>";
+        $_SESSION['form_data'] = $_POST;
+        $_SESSION['errores']['general'] = "Error: " . $e->getMessage();
+        header('Location: ../index.php');
+        exit;
+
     } finally {
         if (isset($conn)) {
             $conn->close();
