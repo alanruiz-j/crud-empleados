@@ -229,12 +229,12 @@ function getCatalogData($conn, $table, $id_field, $name_field, $where = '') { re
                                 </div>
                                 <div class="col-md-4">
                                     <label for="curp" class="form-label">CURP <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control <?= hasError('curp_empleado') ?>" id="curp" required name="curp_empleado" value="<?= get_value('curp_empleado', 'CURP_EMPLEADO') ?>" minlength="18" maxlength="18" pattern="[A-Z][AEIOUX][A-Z]{2}[0-9]{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01])[HM](?:AS|B[CS]|C[CLMSH]|D[FG]|G[TR]|HG|JC|M[CNS]|N[ETL]|OC|PL|Q[TR]|S[PLR]|T[CSL]|VZ|YN|ZS)[B-DF-HJ-NP-TV-Z]{3}[A-Z0-9]{2}" title="Introduce un CURP válido (18 caracteres)">
+                                    <input type="text" class="form-control <?= hasError('curp_empleado') ?>" id="curp" required name="curp_empleado" value="<?= get_value('curp_empleado', 'CURP_EMPLEADO') ?>" minlength="18" maxlength="18" pattern="[A-Z][AEIOUX][A-Z]{2}[0-9]{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01])[HM](?:AS|B[CS]|C[CLMSH]|D[FG]|G[TR]|HG|JC|M[CNS]|N[ETL]|OC|PL|Q[TR]|S[PLR]|T[CSL]|VZ|YN|ZS)[B-DF-HJ-NP-TV-Z]{3}[A-Z0-9]{2}" title="Introduce un CURP válido (18 caracteres)" style="text-transform: uppercase;">
                                     <?= showError('curp_empleado') ?>
                                 </div>
                                 <div class="col-md-4">
                                     <label for="rfc" class="form-label">RFC <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control <?= hasError('rfc_empleado') ?>" id="rfc" required name="rfc_empleado" value="<?= get_value('rfc_empleado', 'RFC_EMPLEADO') ?>" minlength="10" maxlength="13" pattern="[A-ZÑ&]{3,4}[0-9]{6}([A-Z0-9]{3})?" title="Introduce un RFC válido (10 a 13 caracteres)">
+                                    <input type="text" class="form-control <?= hasError('rfc_empleado') ?>" id="rfc" required name="rfc_empleado" value="<?= get_value('rfc_empleado', 'RFC_EMPLEADO') ?>" minlength="10" maxlength="13" pattern="[A-ZÑ&]{3,4}[0-9]{6}([A-Z0-9]{3})?" title="Introduce un RFC válido (10 a 13 caracteres)" style="text-transform: uppercase;">
                                     <?= showError('rfc_empleado') ?>
                                 </div>
                             </div>
