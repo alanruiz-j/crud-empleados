@@ -15,8 +15,8 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
 
     // Consulta robusta para obtener todos los datos necesarios del empleado
     $sql = $conn->prepare("
-        SELECT 
-            e.*, 
+        SELECT
+            e.*,
             d.CALLE, d.NUMERO_EXTERIOR, d.NUMERO_INTERIOR, d.COLONIA, d.ID_MUNICIPIO,
             p.ID_PAIS,
             est.ID_ESTADO,
@@ -227,7 +227,8 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
                                     <select class="form-select" id="pais" name="pais_empleado" required>
                                         <option value="">Seleccione un País...</option>
                                         <?php
-                                            $sql_pais = $conn->query("SELECT ID_PAIS, NOMBRE_PAIS FROM paises ORDER BY NOMBRE_PAIS");
+                                            // ----- CAMBIO 1: AÑADIDO "WHERE ESTADO_PAIS = 1" -----
+                                            $sql_pais = $conn->query("SELECT ID_PAIS, NOMBRE_PAIS FROM paises WHERE ESTADO_PAIS = 1 ORDER BY NOMBRE_PAIS");
                                             while ($datos_pais = $sql_pais->fetch_assoc()) {
                                                 $selected = (isset($empleado_data['ID_PAIS']) && $empleado_data['ID_PAIS'] == $datos_pais['ID_PAIS']) ? 'selected' : '';
                                                 echo "<option value='" . $datos_pais['ID_PAIS'] . "' $selected>" . htmlspecialchars($datos_pais['NOMBRE_PAIS']) . "</option>";
@@ -242,7 +243,7 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
                                         <?php
                                         if ($edit_mode && !empty($empleado_data['ID_PAIS'])) {
                                             $id_pais_sel = $empleado_data['ID_PAIS'];
-                                            $stmt_est = $conn->prepare("SELECT ID_ESTADO, NOMBRE_ESTADO FROM estados WHERE ID_PAIS = ? ORDER BY NOMBRE_ESTADO");
+                                            $stmt_est = $conn->prepare("SELECT ID_ESTADO, NOMBRE_ESTADO FROM estados WHERE ID_PAIS = ? AND ESTADO_ESTADO = 1 ORDER BY NOMBRE_ESTADO");
                                             $stmt_est->bind_param("i", $id_pais_sel);
                                             $stmt_est->execute();
                                             $sql_estados = $stmt_est->get_result();
@@ -261,7 +262,7 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
                                         <?php
                                         if ($edit_mode && !empty($empleado_data['ID_ESTADO'])) {
                                             $id_estado_sel = $empleado_data['ID_ESTADO'];
-                                            $stmt_muni = $conn->prepare("SELECT ID_MUNICIPIO, NOMBRE_MUNICIPIO FROM municipios WHERE ID_ESTADO = ? ORDER BY NOMBRE_MUNICIPIO");
+                                            $stmt_muni = $conn->prepare("SELECT ID_MUNICIPIO, NOMBRE_MUNICIPIO FROM municipios WHERE ID_ESTADO = ? AND ESTADO_MUNICIPIO = 1 ORDER BY NOMBRE_MUNICIPIO");
                                             $stmt_muni->bind_param("i", $id_estado_sel);
                                             $stmt_muni->execute();
                                             $sql_muni = $stmt_muni->get_result();
@@ -307,19 +308,20 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
         // Función para confirmar la eliminación
         function confirmarEliminacion(id) {
             if (confirm("¿Estás realmente seguro de que deseas eliminar este empleado? Esta acción es irreversible.")) {
-                window.location.href = "controlador/eliminar_empleado.php?id=" = id;
+                // Pequeña corrección aquí para concatenar el ID correctamente
+                window.location.href = "controlador/eliminar_empleado.php?id=" + id;
             }
         }
 
         $(document).ready(function(){
-            // Tu script AJAX para País -> Estado -> Municipio
+            // ----- CAMBIO 2: SCRIPT AJAX REVERTIDO A LA VERSIÓN ANTERIOR -----
             $('#pais').on('change', function(){
                 var paisId = $(this).val();
                 if(paisId){
                     $.ajax({
                         type: 'POST',
                         url: 'get_ubicaciones.php',
-                        data: { pais_id: paisId },
+                        data: 'pais_id=' + paisId, // Se envía como STRING
                         success: function(html){
                             $('#estado').html(html).prop('disabled', false); 
                             $('#municipio').html('<option value="">Seleccione un Municipio...</option>').prop('disabled', true);
@@ -337,7 +339,7 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
                     $.ajax({
                         type: 'POST',
                         url: 'get_ubicaciones.php',
-                        data: { estado_id: estadoId },
+                        data: 'estado_id=' + estadoId, // Se envía como STRING
                         success: function(html){
                             $('#municipio').html(html).prop('disabled', false);
                         }
