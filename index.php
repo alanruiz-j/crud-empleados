@@ -1,5 +1,7 @@
 <?php
 include 'modelo/conexion.php';
+require_once 'modelo/helpers_ui.php';
+require_once 'modelo/repositorio.php';
 
 // Iniciar sesión para manejar errores
 session_start();
@@ -65,73 +67,12 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
     }
 }
 
-// Función unificada para obtener el valor de un campo.
-// Prioriza datos de un formulario fallido (sesión), luego datos de modo edición (BD), y finalmente un valor por defecto.
-function get_value($form_field_name, $db_field_name = null, $default = '') {
-    global $form_data, $empleado_data, $edit_mode;
-
-    // 1. Prioridad: Datos del formulario guardados en la sesión (tras un error de validación)
-    if (isset($form_data[$form_field_name])) {
-        return htmlspecialchars($form_data[$form_field_name]);
-    }
-
-    // 2. Prioridad: Datos de la base de datos cuando estamos en modo de edición
-    if ($edit_mode) {
-        // Si se proporciona un nombre de campo de BD específico, úsalo
-        if ($db_field_name && isset($empleado_data[$db_field_name])) {
-            return htmlspecialchars($empleado_data[$db_field_name]);
-        }
-        // Como alternativa, intenta con el nombre del campo del formulario (útil para alias como 'correo_principal')
-        if (isset($empleado_data[$form_field_name])) {
-             return htmlspecialchars($empleado_data[$form_field_name]);
-        }
-    }
-
-    // 3. Prioridad: Valor por defecto
-    return $default;
-}
-
-
-// Función para verificar si un campo tiene error
-function hasError($field) {
-    global $errores;
-    return isset($errores[$field]) ? 'is-invalid' : '';
-}
-
-// Función para verificar si un campo está correcto (sin error y con valor)
-function hasSuccess($field) {
-    global $errores, $form_data, $_POST;
-    // Considera éxito si hay datos en form_data o POST, y no hay error para ese campo.
-    $hasValue = !empty($form_data[$field]) || (!empty($_POST[$field]) && !isset($errores[$field]));
-    return !isset($errores[$field]) && $hasValue ? 'is-valid' : '';
-}
-
-
-// Función para mostrar mensaje de error
-function showError($field) {
-    global $errores;
-    if (isset($errores[$field])) {
-        return '<div class="invalid-feedback">' . htmlspecialchars($errores[$field]) . '</div>';
-    }
-    return '';
-}
-
-// Función segura para obtener datos de catálogos
-function getCatalogData($conn, $table, $id_field, $name_field, $where = '') {
-    $data = [];
-    try {
-        $sql = "SELECT $id_field, $name_field FROM $table $where ORDER BY $name_field";
-        $result = $conn->query($sql);
-        if ($result) {
-            while ($row = $result->fetch_assoc()) {
-                $data[] = $row;
-            }
-        }
-    } catch (Exception $e) {
-        // Si hay error, retornar array vacío pero el formulario sigue funcionando
-    }
-    return $data;
-}
+// Wrappers para helpers UI y catálogo, para no cambiar el resto del template
+function get_value($form_field_name, $db_field_name = null, $default = '') { return ui_get_value($form_field_name, $db_field_name, $default); }
+function hasError($field) { return ui_has_error($field); }
+function hasSuccess($field) { return ui_has_success($field); }
+function showError($field) { return ui_show_error($field); }
+function getCatalogData($conn, $table, $id_field, $name_field, $where = '') { return get_catalog($conn, $table, $id_field, $name_field, $where); }
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -316,6 +257,24 @@ function getCatalogData($conn, $table, $id_field, $name_field, $where = '') {
                                         ?>
                                     </select>
                                     <?= showError('departamento_empleado') ?>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="rol" class="form-label">Rol <span class="text-danger">*</span></label>
+                                    <select class="form-select <?= hasError('rol_empleado') ?> <?= hasSuccess('rol_empleado') ?>" id="rol" name="rol_empleado" required>
+                                        <option selected disabled value="" class="select-placeholder">Seleccione...</option>
+                                        <?php
+                                        $roles = getCatalogData($conn, 'roles', 'ID_ROL', 'NOMBRE_ROL', '');
+                                        $selected_rol = get_value('rol_empleado', 'ID_ROL');
+                                        foreach ($roles as $rol) {
+                                            $selected = ($selected_rol == $rol['ID_ROL']) ? 'selected' : '';
+                                            echo "<option value='" . $rol['ID_ROL'] . "' $selected>" . htmlspecialchars($rol['NOMBRE_ROL']) . "</option>";
+                                        }
+                                        if (empty($roles)) {
+                                            echo '<option value="" disabled>No hay roles disponibles</option>';
+                                        }
+                                        ?>
+                                    </select>
+                                    <?= showError('rol_empleado') ?>
                                 </div>
                             </div>
 
