@@ -17,13 +17,13 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
     $sql = $conn->prepare("
         SELECT 
             e.*, 
-            d.*,
+            d.CALLE, d.NUMERO_EXTERIOR, d.NUMERO_INTERIOR, d.COLONIA, d.ID_MUNICIPIO,
             p.ID_PAIS,
             est.ID_ESTADO,
             (SELECT c.CORREO_EMPLEADO FROM correos c WHERE c.ID_EMPLEADO = e.ID_EMPLEADO AND c.TIPO_CORREO = 'principal' LIMIT 1) as correo_principal,
             (SELECT c.CORREO_EMPLEADO FROM correos c WHERE c.ID_EMPLEADO = e.ID_EMPLEADO AND c.TIPO_CORREO = 'secundario' LIMIT 1) as correo_secundario
         FROM empleados e
-        LEFT JOIN domicilios d ON e.ID_DOMICILIO = d.ID_DOMICILIO
+        LEFT JOIN domicilios d ON e.ID_EMPLEADO = d.ID_EMPLEADO -- CORRECCIÓN APLICADA AQUÍ
         LEFT JOIN municipios m ON d.ID_MUNICIPIO = m.ID_MUNICIPIO
         LEFT JOIN estados est ON m.ID_ESTADO = est.ID_ESTADO
         LEFT JOIN paises p ON est.ID_PAIS = p.ID_PAIS
@@ -47,7 +47,7 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $page_title ?></title>
+    <title><?= htmlspecialchars($page_title) ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="icon" type="image/x-icon" href="user-solid-full.ico">
 </head>
@@ -58,7 +58,7 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
             <div class="col-lg-10">
                 <div class="card shadow-sm">
                     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                        <h1 class="h4 mb-0"><?= $page_title ?></h1>
+                        <h1 class="h4 mb-0"><?= htmlspecialchars($page_title) ?></h1>
                         <a href="lista-usuarios.php" class="btn btn-light">Ver Lista de Empleados</a>
                     </div>
                     <div class="card-body">
@@ -84,12 +84,34 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
                             <?php endif; ?>
                             <div class="row g-3">
                                 <div class="col-md-6">
-                                    <label for="contratante" class="form-label">Contratante</label>
-                                    <input type="number" class="form-control" id="contratante" placeholder="ID del Contratante" name="contratante_empleado" value="<?= htmlspecialchars($empleado_data['CONTRATANTE'] ?? '1') ?>">
+                                    <label for="contratante" class="form-label">Contratante (Jefe Directo)</label>
+                                    <select class="form-select" id="contratante" name="contratante_empleado">
+                                        <option value="">-- Sin Asignar --</option>
+                                        <?php
+                                            // Consulta para obtener solo empleados con rol de 'Administrador'
+                                            $sql_admins = $conn->query("
+                                                SELECT 
+                                                    e.ID_EMPLEADO, 
+                                                    CONCAT(e.ID_EMPLEADO, ' - ', e.NOMBRE_EMPLEADO, ' ', e.APELLIDO_PATERNO) AS NOMBRE_COMPLETO
+                                                FROM 
+                                                    empleados e
+                                                JOIN 
+                                                    roles r ON e.ID_ROL = r.ID_ROL
+                                                WHERE 
+                                                    r.NOMBRE_ROL = 'Administrador'
+                                                ORDER BY 
+                                                    e.NOMBRE_EMPLEADO
+                                            ");
+                                            while ($admin = $sql_admins->fetch_assoc()) {
+                                                $selected = (isset($empleado_data['CONTRATANTE']) && $empleado_data['CONTRATANTE'] == $admin['ID_EMPLEADO']) ? 'selected' : '';
+                                                echo "<option value='" . $admin['ID_EMPLEADO'] . "' $selected>" . htmlspecialchars($admin['NOMBRE_COMPLETO']) . "</option>";
+                                            }
+                                        ?>
+                                    </select>
                                 </div>
                                 <div class="col-md-6">
                                     <label for="departamento" class="form-label">Departamento</label>
-                                    <select class="form-select" id="departamento" name="departamento_empleado">
+                                    <select class="form-select" id="departamento" name="departamento_empleado" required>
                                         <option selected disabled value="">Seleccione...</option>
                                         <?php
                                             $sql_dept = $conn->query("SELECT ID_DEPARTAMENTO, NOMBRE_DEPARTAMENTO FROM departamentos ORDER BY NOMBRE_DEPARTAMENTO");
@@ -100,6 +122,21 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
                                         ?>
                                     </select>
                                 </div>
+                            </div>
+                            
+                            <div class="col-md-4 mt-3">
+                                <label for="rol_empleado" class="form-label">Rol del Empleado</label>
+                                <select id="rol_empleado" name="rol_empleado" class="form-select" required>
+                                    <option value="" selected disabled>-- Seleccionar un rol --</option>
+                                    <?php
+                                    $sql_roles = "SELECT ID_ROL, NOMBRE_ROL FROM ROLES ORDER BY NOMBRE_ROL";
+                                    $resultado_roles = $conn->query($sql_roles);
+                                    while ($rol = $resultado_roles->fetch_assoc()) {
+                                        $selected = (isset($empleado_data['ID_ROL']) && $empleado_data['ID_ROL'] == $rol['ID_ROL']) ? 'selected' : '';
+                                        echo "<option value='" . $rol['ID_ROL'] . "' $selected>" . htmlspecialchars($rol['NOMBRE_ROL']) . "</option>";
+                                    }
+                                    ?>
+                                </select>
                             </div>
 
                             <hr class="my-4">
@@ -179,26 +216,7 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
                                     <input type="text" class="form-control" id="numeroInterior" name="numero_interior_empleado" value="<?= htmlspecialchars($empleado_data['NUMERO_INTERIOR'] ?? '') ?>">
                                 </div>
                             </div>
-                            <div class="col-md-4">
-                            <label for="rol_empleado" class="form-label">Rol del Empleado</label>
-                            <select id="rol_empleado" name="rol_empleado" class="form-select" required>
-                                <option value="" selected disabled>-- Seleccionar un rol --</option>
-                                <?php
-                                // Conectamos a la DB para buscar los roles
-                                include 'modelo/conexion.php';
-                                
-                                // Consultamos los roles disponibles
-                                $sql_roles = "SELECT ID_ROL, NOMBRE_ROL FROM ROLES ORDER BY NOMBRE_ROL";
-                                $resultado_roles = $conn->query($sql_roles);
-                                
-                                // Creamos una opción por cada rol
-                                while ($rol = $resultado_roles->fetch_assoc()) {
-                                    echo "<option value='" . $rol['ID_ROL'] . "'>" . $rol['NOMBRE_ROL'] . "</option>";
-                                }
-                                ?>
-                            </select>
-                        </div>
-                             <div class="row g-3 mt-2">
+                            <div class="row g-3 mt-2">
                                 <div class="col-md-6">
                                     <label for="colonia" class="form-label">Colonia <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control" id="colonia" required name="colonia_empleado" value="<?= htmlspecialchars($empleado_data['COLONIA'] ?? '') ?>">

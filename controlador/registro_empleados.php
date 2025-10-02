@@ -9,7 +9,7 @@
 
         try {
             // --- 1. Recoger los datos ---
-            $contratante        = $_POST['contratante_empleado'];
+            $contratante = !empty($_POST['contratante_empleado']) ? $_POST['contratante_empleado'] : null;
             $nombre             = $_POST['nombre_empleado'];
             $apellido_paterno   = $_POST['apellido_paterno_empleado'];
             $apellido_materno   = $_POST['apellido_materno_empleado'];
