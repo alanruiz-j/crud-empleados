@@ -1,37 +1,60 @@
 <?php
+// Utilidades de sanitización y validación de datos para empleados.
+// Se usan tanto en creación como en actualización para garantizar consistencia.
 
+/**
+ * Elimina espacios y normaliza a string.
+ */
 function sanitize_string($value) {
     return trim((string)($value ?? ''));
 }
 
+/**
+ * Normaliza a mayúsculas tras sanitizar.
+ */
 function sanitize_upper($value) {
     return strtoupper(sanitize_string($value));
 }
 
+/**
+ * Valida campo requerido. Registra el error en $errors si aplica.
+ */
 function validate_required(array &$errors, string $key, $value, string $message) {
     if ($value === null || $value === '' ) {
         $errors[$key] = $message;
     }
 }
 
+/**
+ * Valida contra una expresión regular si hay valor.
+ */
 function validate_regex(array &$errors, string $key, $value, string $pattern, string $message) {
     if ($value !== '' && !preg_match($pattern, $value)) {
         $errors[$key] = $message;
     }
 }
 
+/**
+ * Valida formato de correo si hay valor.
+ */
 function validate_email(array &$errors, string $key, $value, string $message) {
     if ($value !== '' && !filter_var($value, FILTER_VALIDATE_EMAIL)) {
         $errors[$key] = $message;
     }
 }
 
+/**
+ * Valida longitud máxima si hay valor.
+ */
 function validate_length_max(array &$errors, string $key, $value, int $max, string $message) {
     if ($value !== '' && strlen($value) > $max) {
         $errors[$key] = $message;
     }
 }
 
+/**
+ * Recoge y sanea datos del request para un empleado.
+ */
 function collect_employee_input(array $source): array {
     return [
         'nombre' => sanitize_string($source['nombre_empleado'] ?? ''),
@@ -54,6 +77,9 @@ function collect_employee_input(array $source): array {
     ];
 }
 
+/**
+ * Ejecuta todas las validaciones de negocio para los datos de empleado.
+ */
 function validate_employee_input(array $data): array {
     $errors = [];
     validate_required($errors, 'nombre_empleado', $data['nombre'], 'El nombre es obligatorio.');

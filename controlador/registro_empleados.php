@@ -1,4 +1,5 @@
 <?php
+// Controlador: registra un nuevo empleado con domicilio y correos relacionados.
 session_start();
 
 if (!empty($_POST['guardar_empleado']) && $_POST['guardar_empleado'] == 'ok') {
@@ -18,6 +19,7 @@ if (!empty($_POST['guardar_empleado']) && $_POST['guardar_empleado'] == 'ok') {
             throw new Exception('Datos de formulario no válidos.');
         }
 
+        // Persistencia usando repositorio y transacción
         $repo = new EmployeeRepository($conn);
         $repo->begin();
 

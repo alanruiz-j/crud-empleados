@@ -1,4 +1,5 @@
 <?php
+// Vista principal: formulario para registrar/editar empleados con validaciones y catálogos.
 include 'modelo/conexion.php';
 require_once 'modelo/helpers_ui.php';
 require_once 'modelo/repositorio.php';

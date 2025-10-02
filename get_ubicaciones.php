@@ -1,4 +1,5 @@
 <?php
+// Endpoint AJAX: devuelve opciones HTML de estados o municipios según selección.
 include 'modelo/conexion.php';
 require_once 'modelo/repositorio.php';
 

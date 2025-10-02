@@ -1,4 +1,5 @@
 <?php
+// Controlador: actualiza datos de un empleado existente, su domicilio y correos.
 session_start();
 
 if (!isset($_SESSION['id_usuario'])) {
@@ -43,6 +44,7 @@ if (isset($_POST['actualizar_empleado']) && $_POST['actualizar_empleado'] == 'ok
 
         $contratante = !empty($_POST['contratante']) ? (int)$_POST['contratante'] : null;
 
+        // Persistencia: empleado, domicilio y correos
         $repo->upsertEmployee($id_empleado, $input, $contratante);
         $repo->upsertAddress($id_empleado, $input);
         if ($input['correo_principal'] !== '') { $repo->upsertEmail($id_empleado, $input['correo_principal'], 'principal'); }

@@ -1,4 +1,5 @@
 <?php
+// Controlador: elimina un empleado y sus datos relacionados de forma transaccional.
 
 if (isset($_GET['id']) && is_numeric($_GET['id'])) {
     include '../modelo/conexion.php';
@@ -6,6 +7,7 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
     $id_empleado = intval($_GET['id']);
 
     try {
+        // Uso del repositorio para encapsular accesos a BD
         $repo = new EmployeeRepository($conn);
         $repo->begin();
 
