@@ -3,13 +3,13 @@ include 'modelo/conexion.php'; // conexión a la base de datos
 
 $edit_mode = false;
 $empleado_data = []; // Array vacío para los datos del empleado
-$page_title = "Registrar Nuevo Empleado";
+$page_title = "Registrar / Editar Empleado";
 $form_action = "controlador/registro_empleados.php";
 
 // Si se recibe un ID por la URL, activamos el modo de edición
 if (isset($_GET['id']) && is_numeric($_GET['id'])) {
     $edit_mode = true;
-    $page_title = "Editar Empleado";
+    $page_title = "Editar Empleado #" . intval($_GET['id']);
     $form_action = "controlador/actualizar_empleado.php";
     $id_empleado = intval($_GET['id']);
 
@@ -23,7 +23,7 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
             (SELECT c.CORREO_EMPLEADO FROM correos c WHERE c.ID_EMPLEADO = e.ID_EMPLEADO AND c.TIPO_CORREO = 'principal' LIMIT 1) as correo_principal,
             (SELECT c.CORREO_EMPLEADO FROM correos c WHERE c.ID_EMPLEADO = e.ID_EMPLEADO AND c.TIPO_CORREO = 'secundario' LIMIT 1) as correo_secundario
         FROM empleados e
-        LEFT JOIN domicilios d ON e.ID_EMPLEADO = d.ID_EMPLEADO -- CORRECCIÓN APLICADA AQUÍ
+        LEFT JOIN domicilios d ON e.ID_EMPLEADO = d.ID_EMPLEADO
         LEFT JOIN municipios m ON d.ID_MUNICIPIO = m.ID_MUNICIPIO
         LEFT JOIN estados est ON m.ID_ESTADO = est.ID_ESTADO
         LEFT JOIN paises p ON est.ID_PAIS = p.ID_PAIS
@@ -35,13 +35,11 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
     if ($result->num_rows > 0) {
         $empleado_data = $result->fetch_assoc();
     } else {
-        // Si no se encuentra el empleado, redirigir o mostrar un error
-        header("Location: lista-usuarios.php");
+        echo "<script>alert('No se encontró ningún empleado con el ID: " . $id_empleado . "'); window.location.href='index.php';</script>";
         exit;
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -49,6 +47,7 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($page_title) ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link rel="icon" type="image/x-icon" href="user-solid-full.ico">
 </head>
 <body>
@@ -59,9 +58,20 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
                 <div class="card shadow-sm">
                     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                         <h1 class="h4 mb-0"><?= htmlspecialchars($page_title) ?></h1>
-                        <a href="lista-usuarios.php" class="btn btn-light">Ver Lista de Empleados</a>
+                        
+                        <form action="index.php" method="GET" class="d-flex">
+                            <input class="form-control me-2" type="search" placeholder="Buscar empleado por ID" aria-label="Buscar" name="id" required>
+                            <button class="btn btn-light" type="submit">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                            </button>
+                        </form>
+
                     </div>
                     <div class="card-body">
+                        <?php if (!$edit_mode): ?>
+                            <div class="alert alert-info">Para registrar un nuevo empleado, complete el formulario. Para editar, use el buscador superior.</div>
+                        <?php endif; ?>
+
                         <form id="employeeForm" class="needs-validation" novalidate method="POST" action="<?= $form_action ?>">
                             
                             <?php if ($edit_mode): ?>
@@ -82,26 +92,15 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
                                 </div>
                                 <hr class="my-4">
                             <?php endif; ?>
+                            
+                            <h2 class="h5 border-bottom pb-2 mb-3">Datos Laborales</h2>
                             <div class="row g-3">
-                                <div class="col-md-6">
+                                <div class="col-md-4">
                                     <label for="contratante" class="form-label">Contratante (Jefe Directo)</label>
                                     <select class="form-select" id="contratante" name="contratante_empleado">
                                         <option value="">-- Sin Asignar --</option>
                                         <?php
-                                            // Consulta para obtener solo empleados con rol de 'Administrador'
-                                            $sql_admins = $conn->query("
-                                                SELECT 
-                                                    e.ID_EMPLEADO, 
-                                                    CONCAT(e.ID_EMPLEADO, ' - ', e.NOMBRE_EMPLEADO, ' ', e.APELLIDO_PATERNO) AS NOMBRE_COMPLETO
-                                                FROM 
-                                                    empleados e
-                                                JOIN 
-                                                    roles r ON e.ID_ROL = r.ID_ROL
-                                                WHERE 
-                                                    r.NOMBRE_ROL = 'Administrador'
-                                                ORDER BY 
-                                                    e.NOMBRE_EMPLEADO
-                                            ");
+                                            $sql_admins = $conn->query("SELECT e.ID_EMPLEADO, CONCAT(e.ID_EMPLEADO, ' - ', e.NOMBRE_EMPLEADO, ' ', e.APELLIDO_PATERNO) AS NOMBRE_COMPLETO FROM empleados e JOIN roles r ON e.ID_ROL = r.ID_ROL WHERE r.NOMBRE_ROL = 'Administrador' ORDER BY e.NOMBRE_EMPLEADO");
                                             while ($admin = $sql_admins->fetch_assoc()) {
                                                 $selected = (isset($empleado_data['CONTRATANTE']) && $empleado_data['CONTRATANTE'] == $admin['ID_EMPLEADO']) ? 'selected' : '';
                                                 echo "<option value='" . $admin['ID_EMPLEADO'] . "' $selected>" . htmlspecialchars($admin['NOMBRE_COMPLETO']) . "</option>";
@@ -109,7 +108,7 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
                                         ?>
                                     </select>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-4">
                                     <label for="departamento" class="form-label">Departamento</label>
                                     <select class="form-select" id="departamento" name="departamento_empleado" required>
                                         <option selected disabled value="">Seleccione...</option>
@@ -122,21 +121,20 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
                                         ?>
                                     </select>
                                 </div>
-                            </div>
-                            
-                            <div class="col-md-4 mt-3">
-                                <label for="rol_empleado" class="form-label">Rol del Empleado</label>
-                                <select id="rol_empleado" name="rol_empleado" class="form-select" required>
-                                    <option value="" selected disabled>-- Seleccionar un rol --</option>
-                                    <?php
-                                    $sql_roles = "SELECT ID_ROL, NOMBRE_ROL FROM ROLES ORDER BY NOMBRE_ROL";
-                                    $resultado_roles = $conn->query($sql_roles);
-                                    while ($rol = $resultado_roles->fetch_assoc()) {
-                                        $selected = (isset($empleado_data['ID_ROL']) && $empleado_data['ID_ROL'] == $rol['ID_ROL']) ? 'selected' : '';
-                                        echo "<option value='" . $rol['ID_ROL'] . "' $selected>" . htmlspecialchars($rol['NOMBRE_ROL']) . "</option>";
-                                    }
-                                    ?>
-                                </select>
+                                <div class="col-md-4">
+                                    <label for="rol_empleado" class="form-label">Rol del Empleado</label>
+                                    <select id="rol_empleado" name="rol_empleado" class="form-select" required>
+                                        <option value="" selected disabled>-- Seleccionar un rol --</option>
+                                        <?php
+                                        $sql_roles = "SELECT ID_ROL, NOMBRE_ROL FROM ROLES ORDER BY NOMBRE_ROL";
+                                        $resultado_roles = $conn->query($sql_roles);
+                                        while ($rol = $resultado_roles->fetch_assoc()) {
+                                            $selected = (isset($empleado_data['ID_ROL']) && $empleado_data['ID_ROL'] == $rol['ID_ROL']) ? 'selected' : '';
+                                            echo "<option value='" . $rol['ID_ROL'] . "' $selected>" . htmlspecialchars($rol['NOMBRE_ROL']) . "</option>";
+                                        }
+                                        ?>
+                                    </select>
+                                </div>
                             </div>
 
                             <hr class="my-4">
@@ -217,7 +215,7 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
                                 </div>
                             </div>
                             <div class="row g-3 mt-2">
-                                <div class="col-md-6">
+                                <div class="col-md-12">
                                     <label for="colonia" class="form-label">Colonia <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control" id="colonia" required name="colonia_empleado" value="<?= htmlspecialchars($empleado_data['COLONIA'] ?? '') ?>">
                                 </div>
@@ -244,7 +242,10 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
                                         <?php
                                         if ($edit_mode && !empty($empleado_data['ID_PAIS'])) {
                                             $id_pais_sel = $empleado_data['ID_PAIS'];
-                                            $sql_estados = $conn->query("SELECT ID_ESTADO, NOMBRE_ESTADO FROM estados WHERE ID_PAIS = $id_pais_sel ORDER BY NOMBRE_ESTADO");
+                                            $stmt_est = $conn->prepare("SELECT ID_ESTADO, NOMBRE_ESTADO FROM estados WHERE ID_PAIS = ? ORDER BY NOMBRE_ESTADO");
+                                            $stmt_est->bind_param("i", $id_pais_sel);
+                                            $stmt_est->execute();
+                                            $sql_estados = $stmt_est->get_result();
                                             while ($datos_estado = $sql_estados->fetch_assoc()) {
                                                 $selected = (isset($empleado_data['ID_ESTADO']) && $empleado_data['ID_ESTADO'] == $datos_estado['ID_ESTADO']) ? 'selected' : '';
                                                 echo "<option value='" . $datos_estado['ID_ESTADO'] . "' $selected>" . htmlspecialchars($datos_estado['NOMBRE_ESTADO']) . "</option>";
@@ -260,7 +261,10 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
                                         <?php
                                         if ($edit_mode && !empty($empleado_data['ID_ESTADO'])) {
                                             $id_estado_sel = $empleado_data['ID_ESTADO'];
-                                            $sql_muni = $conn->query("SELECT ID_MUNICIPIO, NOMBRE_MUNICIPIO FROM municipios WHERE ID_ESTADO = $id_estado_sel ORDER BY NOMBRE_MUNICIPIO");
+                                            $stmt_muni = $conn->prepare("SELECT ID_MUNICIPIO, NOMBRE_MUNICIPIO FROM municipios WHERE ID_ESTADO = ? ORDER BY NOMBRE_MUNICIPIO");
+                                            $stmt_muni->bind_param("i", $id_estado_sel);
+                                            $stmt_muni->execute();
+                                            $sql_muni = $stmt_muni->get_result();
                                             while ($datos_muni = $sql_muni->fetch_assoc()) {
                                                 $selected = (isset($empleado_data['ID_MUNICIPIO']) && $empleado_data['ID_MUNICIPIO'] == $datos_muni['ID_MUNICIPIO']) ? 'selected' : '';
                                                 echo "<option value='" . $datos_muni['ID_MUNICIPIO'] . "' $selected>" . htmlspecialchars($datos_muni['NOMBRE_MUNICIPIO']) . "</option>";
@@ -273,12 +277,23 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
                             
                             <hr class="my-4">
 
-                            <div class="d-grid">
-                                <button class="btn btn-primary btn-lg" type="submit" name="<?= $edit_mode ? 'actualizar_empleado' : 'guardar_empleado' ?>" value="ok">
-                                    <?= $edit_mode ? 'Actualizar Cambios' : 'Guardar Empleado' ?>
-                                </button>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <?php if ($edit_mode): ?>
+                                    <button type="button" class="btn btn-danger" onclick="confirmarEliminacion(<?= htmlspecialchars($id_empleado) ?>)">
+                                        <i class="fa-solid fa-trash"></i> Eliminar Empleado
+                                    </button>
+                                <?php else: ?>
+                                    <div></div>
+                                <?php endif; ?>
+
+                                <div>
+                                    <a href="index.php" class="btn btn-secondary">Limpiar / Nuevo</a>
+                                    <button class="btn btn-primary" type="submit" name="<?= $edit_mode ? 'actualizar_empleado' : 'guardar_empleado' ?>" value="ok">
+                                        <?= $edit_mode ? 'Actualizar Cambios' : 'Guardar Empleado' ?>
+                                    </button>
+                                </div>
                             </div>
-                        </form>
+                            </form>
                     </div>
                 </div>
             </div>
@@ -289,14 +304,22 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
+        // Función para confirmar la eliminación
+        function confirmarEliminacion(id) {
+            if (confirm("¿Estás realmente seguro de que deseas eliminar este empleado? Esta acción es irreversible.")) {
+                window.location.href = "controlador/eliminar_empleado.php?id=" = id;
+            }
+        }
+
         $(document).ready(function(){
+            // Tu script AJAX para País -> Estado -> Municipio
             $('#pais').on('change', function(){
                 var paisId = $(this).val();
                 if(paisId){
                     $.ajax({
                         type: 'POST',
                         url: 'get_ubicaciones.php',
-                        data: 'pais_id=' + paisId,
+                        data: { pais_id: paisId },
                         success: function(html){
                             $('#estado').html(html).prop('disabled', false); 
                             $('#municipio').html('<option value="">Seleccione un Municipio...</option>').prop('disabled', true);
@@ -314,7 +337,7 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
                     $.ajax({
                         type: 'POST',
                         url: 'get_ubicaciones.php',
-                        data: 'estado_id=' + estadoId,
+                        data: { estado_id: estadoId },
                         success: function(html){
                             $('#municipio').html(html).prop('disabled', false);
                         }
@@ -326,5 +349,5 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
         });
     </script>
     
-    </body>
+</body>
 </html>
