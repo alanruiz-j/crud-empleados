@@ -1,10 +1,33 @@
 <?php
-include 'modelo/conexion.php'; // conexión a la base de datos
+include 'modelo/conexion.php';
+
+// Iniciar sesión para manejar errores
+session_start();
+// Verificar si el usuario está logueado
+if (!isset($_SESSION['user_id'])) {
+    header('Location: login.php');
+    exit;
+}
 
 $edit_mode = false;
-$empleado_data = []; // Array vacío para los datos del empleado
-$page_title = "Registrar / Editar Empleado";
+$empleado_data = [];
+$page_title = "Agregar empleado";
 $form_action = "controlador/registro_empleados.php";
+
+// Variables para mantener datos en caso de error
+$form_data = [];
+$errores = [];
+
+// Recuperar datos del formulario si hubo error
+if (isset($_SESSION['form_data'])) {
+    $form_data = $_SESSION['form_data'];
+    unset($_SESSION['form_data']);
+}
+
+if (isset($_SESSION['errores'])) {
+    $errores = $_SESSION['errores'];
+    unset($_SESSION['errores']);
+}
 
 // Si se recibe un ID por la URL, activamos el modo de edición
 if (isset($_GET['id']) && is_numeric($_GET['id'])) {
@@ -39,9 +62,70 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
         exit;
     }
 }
+
+// Función para obtener el valor de un campo (prioriza datos de error, luego datos de edición)
+function getFieldValue($field, $default = '') {
+    global $form_data, $empleado_data, $edit_mode;
+    
+    if (!empty($form_data[$field])) {
+        return htmlspecialchars($form_data[$field]);
+    } elseif ($edit_mode && isset($empleado_data[$field])) {
+        return htmlspecialchars($empleado_data[$field]);
+    }
+    return $default;
+}
+
+// Función específica para campos de la tabla empleados
+function getEmpleadoValue($field, $default = '') {
+    global $empleado_data, $edit_mode;
+    if ($edit_mode && isset($empleado_data[$field])) {
+        return htmlspecialchars($empleado_data[$field]);
+    }
+    return $default;
+}
+
+// Función para verificar si un campo tiene error
+function hasError($field) {
+    global $errores;
+    return isset($errores[$field]) ? 'is-invalid' : '';
+}
+
+// Función para verificar si un campo está correcto (sin error y con valor)
+function hasSuccess($field) {
+    global $errores, $form_data;
+    $hasValue = !empty($form_data[$field]) || (!empty($_POST[$field]) && !isset($errores[$field]));
+    return !isset($errores[$field]) && $hasValue ? 'is-valid' : '';
+}
+
+// Función para mostrar mensaje de error
+function showError($field) {
+    global $errores;
+    if (isset($errores[$field])) {
+        return '<div class="invalid-feedback">' . htmlspecialchars($errores[$field]) . '</div>';
+    }
+    return '';
+}
+
+// Función segura para obtener datos de catálogos
+function getCatalogData($conn, $table, $id_field, $name_field, $where = '') {
+    $data = [];
+    try {
+        $sql = "SELECT $id_field, $name_field FROM $table $where ORDER BY $name_field";
+        $result = $conn->query($sql);
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $data[] = $row;
+            }
+        }
+    } catch (Exception $e) {
+        // Si hay error, retornar array vacío pero el formulario sigue funcionando
+    }
+    return $data;
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -49,7 +133,53 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link rel="icon" type="image/x-icon" href="user-solid-full.ico">
+    <style>
+        .invalid-feedback {
+            display: block;
+        }
+        .was-validated .form-control:invalid, 
+        .form-control.is-invalid {
+            border-color: #dc3545;
+            padding-right: calc(1.5em + 0.75rem);
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath d='m5.8 3.6.4.4.4-.4'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right calc(0.375em + 0.1875rem) center;
+            background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+        }
+        .was-validated .form-control:valid,
+        .form-control.is-valid {
+            border-color: #198754;
+            padding-right: calc(1.5em + 0.75rem);
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23198754' d='M2.3 6.73.6 4.53c-.4-1.04.46-1.4 1.1-.8l1.1 1.4 3.4-3.8c.6-.63 1.6-.27 1.2.7l-4 4.6c-.43.5-.8.4-1.1.1z'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right calc(0.375em + 0.1875rem) center;
+            background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+        }
+        .was-validated .form-select:invalid,
+        .form-select.is-invalid {
+            border-color: #dc3545;
+            padding-right: calc(1.5em + 0.75rem);
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath d='m5.8 3.6.4.4.4-.4'/%3e%3c/svg%3e"), url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+            background-position: right calc(0.375em + 0.1875rem) center, right 0.75rem center;
+            background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem), 16px 12px;
+        }
+        .was-validated .form-select:valid,
+        .form-select.is-valid {
+            border-color: #198754;
+            padding-right: calc(1.5em + 0.75rem);
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23198754' d='M2.3 6.73.6 4.53c-.4-1.04.46-1.4 1.1-.8l1.1 1.4 3.4-3.8c.6-.63 1.6-.27 1.2.7l-4 4.6c-.43.5-.8.4-1.1.1z'/%3e%3c/svg%3e"), url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+            background-position: right calc(0.375em + 0.1875rem) center, right 0.75rem center;
+            background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem), 16px 12px;
+        }
+        .select-placeholder {
+            color: #6c757d;
+        }
+        .form-label .text-danger {
+            font-weight: bold;
+        }
+    </style>
 </head>
+
 <body>
 
     <div class="container mt-5 mb-5">
@@ -58,7 +188,7 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
                 <div class="card shadow-sm">
                     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                         <h1 class="h4 mb-0"><?= htmlspecialchars($page_title) ?></h1>
-                        
+
                         <form action="index.php" method="GET" class="d-flex">
                             <input class="form-control me-2" type="search" placeholder="Buscar empleado por ID" aria-label="Buscar" name="id" required>
                             <button class="btn btn-light" type="submit">
@@ -68,12 +198,25 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
 
                     </div>
                     <div class="card-body">
+                        <?php if (!empty($errores)): ?>
+                            <div class="alert alert-danger">
+                                <strong>Errores encontrados:</strong> Por favor corrige los siguientes problemas:
+                                <ul class="mb-0 mt-1">
+                                    <?php foreach ($errores as $error): ?>
+                                        <li><?= htmlspecialchars($error) ?></li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            </div>
+                        <?php endif; ?>
+
                         <?php if (!$edit_mode): ?>
-                            <div class="alert alert-info">Para registrar un nuevo empleado, complete el formulario. Para editar, use el buscador superior.</div>
+                            <div class="alert alert-info">Registrar un nuevo empleado. Los campos marcados con <span class="text-danger">*</span> son obligatorios.</div>
+                        <?php else: ?>
+                            <div class="alert alert-warning">Editando empleado #<?= htmlspecialchars($empleado_data['ID_EMPLEADO'] ?? '') ?>. Los campos marcados con <span class="text-danger">*</span> son obligatorios.</div>
                         <?php endif; ?>
 
                         <form id="employeeForm" class="needs-validation" novalidate method="POST" action="<?= $form_action ?>">
-                            
+
                             <?php if ($edit_mode): ?>
                                 <input type="hidden" name="id_empleado" value="<?= htmlspecialchars($empleado_data['ID_EMPLEADO'] ?? '') ?>">
                             <?php endif; ?>
@@ -87,95 +230,80 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
                                     </div>
                                     <div class="col-md-6">
                                         <label for="fecha_contratacion" class="form-label">Fecha de Contratación</label>
-                                        <input type="date" class="form-control" id="fecha_contratacion" name="fecha_contratacion_empleado" value="<?= htmlspecialchars($empleado_data['FECHA_CONTRATACION'] ?? '') ?>">
+                                        <input type="date" class="form-control" id="fecha_contratacion" name="fecha_contratacion_empleado" value="<?= getEmpleadoValue('FECHA_CONTRATACION') ?>">
                                     </div>
                                 </div>
                                 <hr class="my-4">
                             <?php endif; ?>
-                            
-                            <h2 class="h5 border-bottom pb-2 mb-3">Datos Laborales</h2>
-                            <div class="row g-3">
-                                <div class="col-md-4">
-                                    <label for="contratante" class="form-label">Contratante (Jefe Directo)</label>
-                                    <select class="form-select" id="contratante" name="contratante_empleado">
-                                        <option value="">-- Sin Asignar --</option>
-                                        <?php
-                                            $sql_admins = $conn->query("SELECT e.ID_EMPLEADO, CONCAT(e.ID_EMPLEADO, ' - ', e.NOMBRE_EMPLEADO, ' ', e.APELLIDO_PATERNO) AS NOMBRE_COMPLETO FROM empleados e JOIN roles r ON e.ID_ROL = r.ID_ROL WHERE r.NOMBRE_ROL = 'Administrador' ORDER BY e.NOMBRE_EMPLEADO");
-                                            while ($admin = $sql_admins->fetch_assoc()) {
-                                                $selected = (isset($empleado_data['CONTRATANTE']) && $empleado_data['CONTRATANTE'] == $admin['ID_EMPLEADO']) ? 'selected' : '';
-                                                echo "<option value='" . $admin['ID_EMPLEADO'] . "' $selected>" . htmlspecialchars($admin['NOMBRE_COMPLETO']) . "</option>";
-                                            }
-                                        ?>
-                                    </select>
-                                </div>
-                                <div class="col-md-4">
-                                    <label for="departamento" class="form-label">Departamento</label>
-                                    <select class="form-select" id="departamento" name="departamento_empleado" required>
-                                        <option selected disabled value="">Seleccione...</option>
-                                        <?php
-                                            $sql_dept = $conn->query("SELECT ID_DEPARTAMENTO, NOMBRE_DEPARTAMENTO FROM departamentos ORDER BY NOMBRE_DEPARTAMENTO");
-                                            while ($datos_dept = $sql_dept->fetch_assoc()) {
-                                                $selected = (isset($empleado_data['ID_DEPARTAMENTO']) && $empleado_data['ID_DEPARTAMENTO'] == $datos_dept['ID_DEPARTAMENTO']) ? 'selected' : '';
-                                                echo "<option value='" . $datos_dept['ID_DEPARTAMENTO'] . "' $selected>" . htmlspecialchars($datos_dept['NOMBRE_DEPARTAMENTO']) . "</option>";
-                                            }
-                                        ?>
-                                    </select>
-                                </div>
-                                <div class="col-md-4">
-                                    <label for="rol_empleado" class="form-label">Rol del Empleado</label>
-                                    <select id="rol_empleado" name="rol_empleado" class="form-select" required>
-                                        <option value="" selected disabled>-- Seleccionar un rol --</option>
-                                        <?php
-                                        $sql_roles = "SELECT ID_ROL, NOMBRE_ROL FROM ROLES ORDER BY NOMBRE_ROL";
-                                        $resultado_roles = $conn->query($sql_roles);
-                                        while ($rol = $resultado_roles->fetch_assoc()) {
-                                            $selected = (isset($empleado_data['ID_ROL']) && $empleado_data['ID_ROL'] == $rol['ID_ROL']) ? 'selected' : '';
-                                            echo "<option value='" . $rol['ID_ROL'] . "' $selected>" . htmlspecialchars($rol['NOMBRE_ROL']) . "</option>";
-                                        }
-                                        ?>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <hr class="my-4">
 
                             <h2 class="h5 border-bottom pb-2 mb-3">Información Personal</h2>
                             <div class="row g-3">
                                 <div class="col-md-4">
                                     <label for="nombre" class="form-label">Nombre(s) <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" id="nombre" required name="nombre_empleado" value="<?= htmlspecialchars($empleado_data['NOMBRE_EMPLEADO'] ?? '') ?>">
+                                    <input type="text" class="form-control <?= hasError('nombre_empleado') ?> <?= hasSuccess('nombre_empleado') ?>" id="nombre" required name="nombre_empleado" value="<?= getEmpleadoValue('NOMBRE_EMPLEADO') ?>">
+                                    <?= showError('nombre_empleado') ?>
                                 </div>
                                 <div class="col-md-4">
                                     <label for="apellidoPaterno" class="form-label">Apellido Paterno</label>
-                                    <input type="text" class="form-control" id="apellidoPaterno" name="apellido_paterno_empleado" value="<?= htmlspecialchars($empleado_data['APELLIDO_PATERNO'] ?? '') ?>">
+                                    <input type="text" class="form-control <?= hasError('apellido_paterno_empleado') ?> <?= hasSuccess('apellido_paterno_empleado') ?>" id="apellidoPaterno" name="apellido_paterno_empleado" value="<?= getEmpleadoValue('APELLIDO_PATERNO') ?>">
+                                    <?= showError('apellido_paterno_empleado') ?>
                                 </div>
                                 <div class="col-md-4">
                                     <label for="apellidoMaterno" class="form-label">Apellido Materno</label>
-                                    <input type="text" class="form-control" id="apellidoMaterno" name="apellido_materno_empleado" value="<?= htmlspecialchars($empleado_data['APELLIDO_MATERNO'] ?? '') ?>">
+                                    <input type="text" class="form-control <?= hasError('apellido_materno_empleado') ?> <?= hasSuccess('apellido_materno_empleado') ?>" id="apellidoMaterno" name="apellido_materno_empleado" value="<?= getEmpleadoValue('APELLIDO_MATERNO') ?>">
+                                    <?= showError('apellido_materno_empleado') ?>
                                 </div>
                             </div>
 
                             <div class="row g-3 mt-2">
                                 <div class="col-md-4">
                                     <label for="genero" class="form-label">Género <span class="text-danger">*</span></label>
-                                    <select class="form-select" id="genero" required name="genero_empleado">
-                                        <option selected disabled value="">Seleccione...</option>
+                                    <select class="form-select <?= hasError('genero_empleado') ?> <?= hasSuccess('genero_empleado') ?>" id="genero" required name="genero_empleado">
+                                        <option selected disabled value="" class="select-placeholder">Seleccione...</option>
                                         <?php
-                                            $sql_gen = $conn->query("SELECT ID_GENERO, NOMBRE_GENERO FROM generos ORDER BY NOMBRE_GENERO");
-                                            while ($datos_gen = $sql_gen->fetch_assoc()) {
-                                                $selected = (isset($empleado_data['ID_GENERO']) && $empleado_data['ID_GENERO'] == $datos_gen['ID_GENERO']) ? 'selected' : '';
-                                                echo "<option value='" . $datos_gen['ID_GENERO'] . "' $selected>" . htmlspecialchars($datos_gen['NOMBRE_GENERO']) . "</option>";
-                                            }
+                                        $generos = getCatalogData($conn, 'generos', 'ID_GENERO', 'NOMBRE_GENERO', 'WHERE ESTADO_GENERO = 1');
+                                        $selected_genero = getEmpleadoValue('ID_GENERO');
+                                        foreach ($generos as $genero) {
+                                            $selected = ($selected_genero == $genero['ID_GENERO']) ? 'selected' : '';
+                                            echo "<option value='" . $genero['ID_GENERO'] . "' $selected>" . htmlspecialchars($genero['NOMBRE_GENERO']) . "</option>";
+                                        }
+                                        if (empty($generos)) {
+                                            echo '<option value="" disabled>No hay géneros disponibles</option>';
+                                        }
                                         ?>
                                     </select>
+                                    <?= showError('genero_empleado') ?>
                                 </div>
                                 <div class="col-md-4">
                                     <label for="curp" class="form-label">CURP <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" id="curp" required name="curp_empleado" value="<?= htmlspecialchars($empleado_data['CURP_EMPLEADO'] ?? '') ?>">
+                                    <input type="text" class="form-control <?= hasError('curp_empleado') ?> <?= hasSuccess('curp_empleado') ?>" id="curp" required name="curp_empleado" value="<?= getEmpleadoValue('CURP_EMPLEADO') ?>">
+                                    <?= showError('curp_empleado') ?>
                                 </div>
                                 <div class="col-md-4">
                                     <label for="rfc" class="form-label">RFC <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" id="rfc" required name="rfc_empleado" value="<?= htmlspecialchars($empleado_data['RFC_EMPLEADO'] ?? '') ?>">
+                                    <input type="text" class="form-control <?= hasError('rfc_empleado') ?> <?= hasSuccess('rfc_empleado') ?>" id="rfc" required name="rfc_empleado" value="<?= getEmpleadoValue('RFC_EMPLEADO') ?>">
+                                    <?= showError('rfc_empleado') ?>
+                                </div>
+                            </div>
+
+                            <div class="row g-3 mt-2">
+                                <div class="col-md-4">
+                                    <label for="departamento" class="form-label">Departamento <span class="text-danger">*</span></label>
+                                    <select class="form-select <?= hasError('departamento_empleado') ?> <?= hasSuccess('departamento_empleado') ?>" id="departamento" name="departamento_empleado" required>
+                                        <option selected disabled value="" class="select-placeholder">Seleccione...</option>
+                                        <?php
+                                        $departamentos = getCatalogData($conn, 'departamentos', 'ID_DEPARTAMENTO', 'NOMBRE_DEPARTAMENTO', 'WHERE ESTADO_DEPARTAMENTO = 1');
+                                        $selected_dept = getEmpleadoValue('ID_DEPARTAMENTO');
+                                        foreach ($departamentos as $dept) {
+                                            $selected = ($selected_dept == $dept['ID_DEPARTAMENTO']) ? 'selected' : '';
+                                            echo "<option value='" . $dept['ID_DEPARTAMENTO'] . "' $selected>" . htmlspecialchars($dept['NOMBRE_DEPARTAMENTO']) . "</option>";
+                                        }
+                                        if (empty($departamentos)) {
+                                            echo '<option value="" disabled>No hay departamentos disponibles</option>';
+                                        }
+                                        ?>
+                                    </select>
+                                    <?= showError('departamento_empleado') ?>
                                 </div>
                             </div>
 
@@ -185,97 +313,104 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
                             <div class="row g-3">
                                 <div class="col-md-4">
                                     <label for="telefono" class="form-label">Teléfono <span class="text-danger">*</span></label>
-                                    <input type="tel" class="form-control" id="telefono" required name="telefono_empleado" value="<?= htmlspecialchars($empleado_data['TELEFONO_EMPLEADO'] ?? '') ?>">
+                                    <input type="tel" class="form-control <?= hasError('telefono_empleado') ?> <?= hasSuccess('telefono_empleado') ?>" id="telefono" required name="telefono_empleado" value="<?= getEmpleadoValue('TELEFONO_EMPLEADO') ?>">
+                                    <?= showError('telefono_empleado') ?>
                                 </div>
                                 <div class="col-md-4">
-                                    <label for="correoPrincipal" class="form-label">Correo Principal</label>
-                                    <input type="email" class="form-control" id="correoPrincipal" name="correo_principal_empleado" value="<?= htmlspecialchars($empleado_data['correo_principal'] ?? '') ?>">
+                                    <label for="correoPrincipal" class="form-label">Correo Principal <span class="text-danger">*</span></label>
+                                    <input type="email" class="form-control <?= hasError('correo_principal_empleado') ?> <?= hasSuccess('correo_principal_empleado') ?>" id="correoPrincipal" required name="correo_principal_empleado" value="<?= getEmpleadoValue('correo_principal') ?>">
+                                    <?= showError('correo_principal_empleado') ?>
                                 </div>
                                 <div class="col-md-4">
                                     <label for="correoSecundario" class="form-label">Correo Secundario</label>
-                                    <input type="email" class="form-control" id="correoSecundario" name="correo_secundario_empleado" value="<?= htmlspecialchars($empleado_data['correo_secundario'] ?? '') ?>">
+                                    <input type="email" class="form-control <?= hasError('correo_secundario_empleado') ?> <?= hasSuccess('correo_secundario_empleado') ?>" id="correoSecundario" name="correo_secundario_empleado" value="<?= getEmpleadoValue('correo_secundario') ?>">
+                                    <?= showError('correo_secundario_empleado') ?>
                                 </div>
                             </div>
-                            
+
                             <hr class="my-4">
 
                             <h2 class="h5 border-bottom pb-2 mb-3">Dirección</h2>
                             <div class="row g-3">
                                 <div class="col-md-8">
                                     <label for="calle" class="form-label">Calle <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" id="calle" required name="calle_empleado" value="<?= htmlspecialchars($empleado_data['CALLE'] ?? '') ?>">
+                                    <input type="text" class="form-control <?= hasError('calle_empleado') ?> <?= hasSuccess('calle_empleado') ?>" id="calle" required name="calle_empleado" value="<?= getEmpleadoValue('CALLE') ?>">
+                                    <?= showError('calle_empleado') ?>
                                 </div>
                                 <div class="col-md-2">
                                     <label for="numeroExterior" class="form-label">No. Exterior <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" id="numeroExterior" required name="numero_exterior_empleado" value="<?= htmlspecialchars($empleado_data['NUMERO_EXTERIOR'] ?? '') ?>">
+                                    <input type="text" class="form-control <?= hasError('numero_exterior_empleado') ?> <?= hasSuccess('numero_exterior_empleado') ?>" id="numeroExterior" required name="numero_exterior_empleado" value="<?= getEmpleadoValue('NUMERO_EXTERIOR') ?>">
+                                    <?= showError('numero_exterior_empleado') ?>
                                 </div>
                                 <div class="col-md-2">
                                     <label for="numeroInterior" class="form-label">No. Interior</label>
-                                    <input type="text" class="form-control" id="numeroInterior" name="numero_interior_empleado" value="<?= htmlspecialchars($empleado_data['NUMERO_INTERIOR'] ?? '') ?>">
+                                    <input type="text" class="form-control <?= hasError('numero_interior_empleado') ?> <?= hasSuccess('numero_interior_empleado') ?>" id="numeroInterior" name="numero_interior_empleado" value="<?= getEmpleadoValue('NUMERO_INTERIOR') ?>">
+                                    <?= showError('numero_interior_empleado') ?>
                                 </div>
                             </div>
                             <div class="row g-3 mt-2">
                                 <div class="col-md-12">
                                     <label for="colonia" class="form-label">Colonia <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" id="colonia" required name="colonia_empleado" value="<?= htmlspecialchars($empleado_data['COLONIA'] ?? '') ?>">
+                                    <input type="text" class="form-control <?= hasError('colonia_empleado') ?> <?= hasSuccess('colonia_empleado') ?>" id="colonia" required name="colonia_empleado" value="<?= getEmpleadoValue('COLONIA') ?>">
+                                    <?= showError('colonia_empleado') ?>
                                 </div>
                             </div>
 
                             <div class="row g-3 mt-2">
                                 <div class="col-md-4">
                                     <label for="pais" class="form-label">País <span class="text-danger">*</span></label>
-                                    <select class="form-select" id="pais" name="pais_empleado" required>
-                                        <option value="">Seleccione un País...</option>
+                                    <select class="form-select <?= hasError('pais_empleado') ?> <?= hasSuccess('pais_empleado') ?>" id="pais" name="pais_empleado" required>
+                                        <option value="" class="select-placeholder">Seleccione un País...</option>
                                         <?php
-                                            // ----- CAMBIO 1: AÑADIDO "WHERE ESTADO_PAIS = 1" -----
-                                            $sql_pais = $conn->query("SELECT ID_PAIS, NOMBRE_PAIS FROM paises WHERE ESTADO_PAIS = 1 ORDER BY NOMBRE_PAIS");
-                                            while ($datos_pais = $sql_pais->fetch_assoc()) {
-                                                $selected = (isset($empleado_data['ID_PAIS']) && $empleado_data['ID_PAIS'] == $datos_pais['ID_PAIS']) ? 'selected' : '';
-                                                echo "<option value='" . $datos_pais['ID_PAIS'] . "' $selected>" . htmlspecialchars($datos_pais['NOMBRE_PAIS']) . "</option>";
-                                            }
+                                        $paises = getCatalogData($conn, 'paises', 'ID_PAIS', 'NOMBRE_PAIS', 'WHERE ESTADO_PAIS = 1');
+                                        $selected_pais = getEmpleadoValue('ID_PAIS');
+                                        foreach ($paises as $pais) {
+                                            $selected = ($selected_pais == $pais['ID_PAIS']) ? 'selected' : '';
+                                            echo "<option value='" . $pais['ID_PAIS'] . "' $selected>" . htmlspecialchars($pais['NOMBRE_PAIS']) . "</option>";
+                                        }
+                                        if (empty($paises)) {
+                                            echo '<option value="" disabled>No hay países disponibles</option>';
+                                        }
                                         ?>
                                     </select>
+                                    <?= showError('pais_empleado') ?>
                                 </div>
                                 <div class="col-md-4">
                                     <label for="estado" class="form-label">Estado <span class="text-danger">*</span></label>
-                                    <select class="form-select" id="estado" name="estado_empleado" required <?= !$edit_mode ? 'disabled' : '' ?>>
-                                        <option value="">Seleccione un Estado...</option>
+                                    <select class="form-select <?= hasError('estado_empleado') ?> <?= hasSuccess('estado_empleado') ?>" id="estado" name="estado_empleado" required>
+                                        <option value="" class="select-placeholder">Seleccione un Estado...</option>
                                         <?php
+                                        $selected_estado = getEmpleadoValue('ID_ESTADO');
                                         if ($edit_mode && !empty($empleado_data['ID_PAIS'])) {
-                                            $id_pais_sel = $empleado_data['ID_PAIS'];
-                                            $stmt_est = $conn->prepare("SELECT ID_ESTADO, NOMBRE_ESTADO FROM estados WHERE ID_PAIS = ? AND ESTADO_ESTADO = 1 ORDER BY NOMBRE_ESTADO");
-                                            $stmt_est->bind_param("i", $id_pais_sel);
-                                            $stmt_est->execute();
-                                            $sql_estados = $stmt_est->get_result();
-                                            while ($datos_estado = $sql_estados->fetch_assoc()) {
-                                                $selected = (isset($empleado_data['ID_ESTADO']) && $empleado_data['ID_ESTADO'] == $datos_estado['ID_ESTADO']) ? 'selected' : '';
-                                                echo "<option value='" . $datos_estado['ID_ESTADO'] . "' $selected>" . htmlspecialchars($datos_estado['NOMBRE_ESTADO']) . "</option>";
+                                            $estados = getCatalogData($conn, 'estados', 'ID_ESTADO', 'NOMBRE_ESTADO', 'WHERE ID_PAIS = ' . $empleado_data['ID_PAIS'] . ' AND ESTADO_ESTADO = 1');
+                                            foreach ($estados as $estado) {
+                                                $selected = ($selected_estado == $estado['ID_ESTADO']) ? 'selected' : '';
+                                                echo "<option value='" . $estado['ID_ESTADO'] . "' $selected>" . htmlspecialchars($estado['NOMBRE_ESTADO']) . "</option>";
                                             }
                                         }
                                         ?>
                                     </select>
+                                    <?= showError('estado_empleado') ?>
                                 </div>
                                 <div class="col-md-4">
                                     <label for="municipio" class="form-label">Municipio <span class="text-danger">*</span></label>
-                                    <select class="form-select" id="municipio" name="municipio_empleado" required <?= !$edit_mode ? 'disabled' : '' ?>>
-                                        <option value="">Seleccione un Municipio...</option>
+                                    <select class="form-select <?= hasError('municipio_empleado') ?> <?= hasSuccess('municipio_empleado') ?>" id="municipio" name="municipio_empleado" required>
+                                        <option value="" class="select-placeholder">Seleccione un Municipio...</option>
                                         <?php
+                                        $selected_municipio = getEmpleadoValue('ID_MUNICIPIO');
                                         if ($edit_mode && !empty($empleado_data['ID_ESTADO'])) {
-                                            $id_estado_sel = $empleado_data['ID_ESTADO'];
-                                            $stmt_muni = $conn->prepare("SELECT ID_MUNICIPIO, NOMBRE_MUNICIPIO FROM municipios WHERE ID_ESTADO = ? AND ESTADO_MUNICIPIO = 1 ORDER BY NOMBRE_MUNICIPIO");
-                                            $stmt_muni->bind_param("i", $id_estado_sel);
-                                            $stmt_muni->execute();
-                                            $sql_muni = $stmt_muni->get_result();
-                                            while ($datos_muni = $sql_muni->fetch_assoc()) {
-                                                $selected = (isset($empleado_data['ID_MUNICIPIO']) && $empleado_data['ID_MUNICIPIO'] == $datos_muni['ID_MUNICIPIO']) ? 'selected' : '';
-                                                echo "<option value='" . $datos_muni['ID_MUNICIPIO'] . "' $selected>" . htmlspecialchars($datos_muni['NOMBRE_MUNICIPIO']) . "</option>";
+                                            $municipios = getCatalogData($conn, 'municipios', 'ID_MUNICIPIO', 'NOMBRE_MUNICIPIO', 'WHERE ID_ESTADO = ' . $empleado_data['ID_ESTADO'] . ' AND ESTADO_MUNICIPIO = 1');
+                                            foreach ($municipios as $municipio) {
+                                                $selected = ($selected_municipio == $municipio['ID_MUNICIPIO']) ? 'selected' : '';
+                                                echo "<option value='" . $municipio['ID_MUNICIPIO'] . "' $selected>" . htmlspecialchars($municipio['NOMBRE_MUNICIPIO']) . "</option>";
                                             }
                                         }
                                         ?>
                                     </select>
+                                    <?= showError('municipio_empleado') ?>
                                 </div>
                             </div>
-                            
+
                             <hr class="my-4">
 
                             <div class="d-flex justify-content-between align-items-center">
@@ -294,7 +429,7 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
                                     </button>
                                 </div>
                             </div>
-                            </form>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -303,53 +438,124 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    
+
     <script>
         // Función para confirmar la eliminación
         function confirmarEliminacion(id) {
             if (confirm("¿Estás realmente seguro de que deseas eliminar este empleado? Esta acción es irreversible.")) {
-                // Pequeña corrección aquí para concatenar el ID correctamente
                 window.location.href = "controlador/eliminar_empleado.php?id=" + id;
             }
         }
 
-        $(document).ready(function(){
-            // ----- CAMBIO 2: SCRIPT AJAX REVERTIDO A LA VERSIÓN ANTERIOR -----
-            $('#pais').on('change', function(){
-                var paisId = $(this).val();
-                if(paisId){
-                    $.ajax({
-                        type: 'POST',
-                        url: 'get_ubicaciones.php',
-                        data: 'pais_id=' + paisId, // Se envía como STRING
-                        success: function(html){
-                            $('#estado').html(html).prop('disabled', false); 
-                            $('#municipio').html('<option value="">Seleccione un Municipio...</option>').prop('disabled', true);
-                        }
-                    }); 
+        $(document).ready(function() {
+            // Habilitar los selects de estado y municipio desde el inicio
+            $('#estado').prop('disabled', false);
+            $('#municipio').prop('disabled', false);
+
+            // Cargar estados si ya hay un país seleccionado
+            var paisSeleccionado = $('#pais').val();
+            if (paisSeleccionado) {
+                cargarEstados(paisSeleccionado);
+            }
+
+            // Cargar municipios si ya hay un estado seleccionado
+            var estadoSeleccionado = $('#estado').val();
+            if (estadoSeleccionado) {
+                cargarMunicipios(estadoSeleccionado);
+            }
+
+            // Validación en tiempo real para campos obligatorios
+            $('input[required], select[required]').on('blur change', function() {
+                validateField($(this));
+            });
+
+            function validateField($field) {
+                if ($field.val().trim() === '') {
+                    $field.removeClass('is-valid').addClass('is-invalid');
                 } else {
-                    $('#estado').html('<option value="">Seleccione un Estado...</option>').prop('disabled', true);
-                    $('#municipio').html('<option value="">Seleccione un Municipio...</option>').prop('disabled', true);
+                    $field.removeClass('is-invalid').addClass('is-valid');
+                }
+            }
+
+            // ----- AJAX para cargar estados cuando cambia el país -----
+            $('#pais').on('change', function() {
+                var paisId = $(this).val();
+                if (paisId) {
+                    cargarEstados(paisId);
+                    validateField($(this));
+                } else {
+                    $('#estado').html('<option value="" class="select-placeholder">Seleccione un Estado...</option>').prop('disabled', false);
+                    $('#municipio').html('<option value="" class="select-placeholder">Seleccione un Municipio...</option>').prop('disabled', false);
+                    validateField($(this));
                 }
             });
 
-            $('#estado').on('change', function(){
+            $('#estado').on('change', function() {
                 var estadoId = $(this).val();
-                if(estadoId){
-                    $.ajax({
-                        type: 'POST',
-                        url: 'get_ubicaciones.php',
-                        data: 'estado_id=' + estadoId, // Se envía como STRING
-                        success: function(html){
-                            $('#municipio').html(html).prop('disabled', false);
-                        }
-                    }); 
+                if (estadoId) {
+                    cargarMunicipios(estadoId);
+                    validateField($(this));
                 } else {
-                    $('#municipio').html('<option value="">Seleccione un Municipio...</option>').prop('disabled', true);
+                    $('#municipio').html('<option value="" class="select-placeholder">Seleccione un Municipio...</option>').prop('disabled', false);
+                    validateField($(this));
                 }
+            });
+
+            function cargarEstados(paisId) {
+                $.ajax({
+                    type: 'POST',
+                    url: 'get_ubicaciones.php',
+                    data: 'pais_id=' + paisId,
+                    success: function(html) {
+                        $('#estado').html(html).prop('disabled', false);
+                        $('#municipio').html('<option value="" class="select-placeholder">Seleccione un Municipio...</option>').prop('disabled', false);
+                        
+                        // Si hay un estado seleccionado previamente, seleccionarlo
+                        var estadoSeleccionado = '<?= getEmpleadoValue("ID_ESTADO") ?>';
+                        if (estadoSeleccionado) {
+                            $('#estado').val(estadoSeleccionado);
+                            if ($('#estado').val() == estadoSeleccionado) {
+                                cargarMunicipios(estadoSeleccionado);
+                            }
+                        }
+                    },
+                    error: function() {
+                        $('#estado').html('<option value="" class="select-placeholder">Error al cargar estados</option>');
+                    }
+                });
+            }
+
+            function cargarMunicipios(estadoId) {
+                $.ajax({
+                    type: 'POST',
+                    url: 'get_ubicaciones.php',
+                    data: 'estado_id=' + estadoId,
+                    success: function(html) {
+                        $('#municipio').html(html).prop('disabled', false);
+                        
+                        // Si hay un municipio seleccionado previamente, seleccionarlo
+                        var municipioSeleccionado = '<?= getEmpleadoValue("ID_MUNICIPIO") ?>';
+                        if (municipioSeleccionado) {
+                            $('#municipio').val(municipioSeleccionado);
+                        }
+                    },
+                    error: function() {
+                        $('#municipio').html('<option value="" class="select-placeholder">Error al cargar municipios</option>');
+                    }
+                });
+            }
+
+            // Validación del formulario del lado del cliente
+            $('#employeeForm').on('submit', function(e) {
+                if (!this.checkValidity()) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+                $(this).addClass('was-validated');
             });
         });
     </script>
-    
+
 </body>
+
 </html>

@@ -1,40 +1,41 @@
 <?php
-// Incluye tu archivo de conexión a la base de datos
 include 'modelo/conexion.php';
 
-// --- Lógica para obtener Estados ---
-if (!empty($_POST["pais_id"])) {
-    $paisId = $conn->real_escape_string($_POST['pais_id']);
-    
-    // Prepara la consulta SQL para obtener los estados de ese país
-    $query = $conn->query("SELECT ID_ESTADO, NOMBRE_ESTADO FROM estados WHERE ID_PAIS = $paisId ORDER BY NOMBRE_ESTADO ASC");
+header('Content-Type: text/html; charset=utf-8');
 
-    // Verifica si se encontraron estados
-    if ($query->num_rows > 0) {
-        echo '<option value="">Seleccione un Estado...</option>';
-        while ($row = $query->fetch_assoc()) {
-            echo '<option value="' . $row['ID_ESTADO'] . '">' . $row['NOMBRE_ESTADO'] . '</option>';
+try {
+    if (isset($_POST['pais_id']) && !empty($_POST['pais_id'])) {
+        $pais_id = intval($_POST['pais_id']);
+        $sql = $conn->prepare("SELECT ID_ESTADO, NOMBRE_ESTADO FROM estados WHERE ID_PAIS = ? AND ESTADO_ESTADO = 1 ORDER BY NOMBRE_ESTADO");
+        $sql->bind_param("i", $pais_id);
+        $sql->execute();
+        $result = $sql->get_result();
+        
+        echo '<option value="" class="select-placeholder">Seleccione un Estado...</option>';
+        if ($result->num_rows > 0) {
+            while ($row = $result->fetch_assoc()) {
+                echo '<option value="' . $row['ID_ESTADO'] . '">' . htmlspecialchars($row['NOMBRE_ESTADO']) . '</option>';
+            }
+        } else {
+            echo '<option value="" disabled>No hay estados disponibles</option>';
         }
-    } else {
-        echo '<option value="">No hay estados disponibles</option>';
-    }
-} 
-// --- Lógica para obtener Municipios ---
-elseif (!empty($_POST["estado_id"])) {
-    // Escapa el ID del estado para seguridad
-    $estadoId = $conn->real_escape_string($_POST['estado_id']);
-
-    // Prepara la consulta SQL para obtener los municipios de ese estado
-    $query = $conn->query("SELECT ID_MUNICIPIO, NOMBRE_MUNICIPIO FROM municipios WHERE ID_ESTADO = $estadoId ORDER BY NOMBRE_MUNICIPIO ASC");
-
-    // Verifica si se encontraron municipios
-    if ($query->num_rows > 0) {
-        echo '<option value="">Seleccione un Municipio...</option>';
-        while ($row = $query->fetch_assoc()) {
-            echo '<option value="' . $row['ID_MUNICIPIO'] . '">' . $row['NOMBRE_MUNICIPIO'] . '</option>';
+    } elseif (isset($_POST['estado_id']) && !empty($_POST['estado_id'])) {
+        $estado_id = intval($_POST['estado_id']);
+        $sql = $conn->prepare("SELECT ID_MUNICIPIO, NOMBRE_MUNICIPIO FROM municipios WHERE ID_ESTADO = ? AND ESTADO_MUNICIPIO = 1 ORDER BY NOMBRE_MUNICIPIO");
+        $sql->bind_param("i", $estado_id);
+        $sql->execute();
+        $result = $sql->get_result();
+        
+        echo '<option value="" class="select-placeholder">Seleccione un Municipio...</option>';
+        if ($result->num_rows > 0) {
+            while ($row = $result->fetch_assoc()) {
+                echo '<option value="' . $row['ID_MUNICIPIO'] . '">' . htmlspecialchars($row['NOMBRE_MUNICIPIO']) . '</option>';
+            }
+        } else {
+            echo '<option value="" disabled>No hay municipios disponibles</option>';
         }
-    } else {
-        echo '<option value="">No hay municipios disponibles</option>';
     }
+} catch (Exception $e) {
+    echo '<option value="" disabled>Error al cargar datos</option>';
 }
 ?>

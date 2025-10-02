@@ -1,4 +1,5 @@
 <?php
+session_start(); // ← AGREGAR ESTO AL INICIO
 
 if (!empty($_POST['guardar_empleado']) && $_POST['guardar_empleado'] == 'ok') {
 
@@ -12,7 +13,6 @@ if (!empty($_POST['guardar_empleado']) && $_POST['guardar_empleado'] == 'ok') {
 
     try {
         // --- 1. Recoger los datos ---
-        $contratante = !empty($_POST['contratante_empleado']) ? $_POST['contratante_empleado'] : null;
         $nombre             = $_POST['nombre_empleado'];
         $apellido_paterno   = $_POST['apellido_paterno_empleado'];
         $apellido_materno   = $_POST['apellido_materno_empleado'];
@@ -29,17 +29,22 @@ if (!empty($_POST['guardar_empleado']) && $_POST['guardar_empleado'] == 'ok') {
         $colonia            = $_POST['colonia_empleado'];
         $municipio          = $_POST['municipio_empleado'];
         $fecha_contratacion = date('Y-m-d');
-        $id_rol             = $_POST['rol_empleado'];
+        $id_rol = 2; // Rol de operador
+        
+        // ← NUEVO: Obtener el ID del administrador que está registrando
+        $contratante = isset($_SESSION['id_usuario']) ? $_SESSION['id_usuario'] : null;
 
         // --- 2. Validación ---
-        if (empty($nombre) || empty($id_rol) || empty($genero) || empty($departamento) || empty($municipio)) {
+        if (empty($nombre) || empty($genero) || empty($departamento) || empty($municipio)) {
             throw new Exception("Por favor, complete todos los campos obligatorios (*).");
         }
 
         // --- 3. PRIMERO: Insertar empleado ---
+        // AGREGAR CONTRATANTE al INSERT
         $sql_empleado = "INSERT INTO empleados (NOMBRE_EMPLEADO, APELLIDO_PATERNO, APELLIDO_MATERNO, ID_GENERO, CURP_EMPLEADO, RFC_EMPLEADO, TELEFONO_EMPLEADO, CONTRATANTE, FECHA_CONTRATACION, ID_DEPARTAMENTO, ID_ROL) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         $stmt_empleado = $conn->prepare($sql_empleado);
         
+        // AGREGAR $contratante al bind_param
         $stmt_empleado->bind_param("sssisssisii", $nombre, $apellido_paterno, $apellido_materno, $genero, $curp, $rfc, $telefono, $contratante, $fecha_contratacion, $departamento, $id_rol);
         $stmt_empleado->execute();
         $id_empleado_insertado = $conn->insert_id;

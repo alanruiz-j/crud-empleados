@@ -17,7 +17,7 @@ if (!empty($_POST['actualizar_empleado']) && $_POST['actualizar_empleado'] == 'o
         $apellido_materno   = $_POST['apellido_materno_empleado'];
         $genero             = $_POST['genero_empleado'];
         $departamento       = $_POST['departamento_empleado'];
-        $rol                = $_POST['rol_empleado'];
+        // ELIMINAMOS la variable $rol ya que no la usaremos
         $curp               = $_POST['curp_empleado'];
         $rfc                = $_POST['rfc_empleado'];
         $correo_principal   = $_POST['correo_principal_empleado'];
@@ -30,10 +30,11 @@ if (!empty($_POST['actualizar_empleado']) && $_POST['actualizar_empleado'] == 'o
         $municipio          = $_POST['municipio_empleado'];
         $fecha_contratacion = $_POST['fecha_contratacion_empleado'];
 
-        // --- 2. Actualizar la tabla de empleados ---
-        $sql_empleado = "UPDATE empleados SET NOMBRE_EMPLEADO=?, APELLIDO_PATERNO=?, APELLIDO_MATERNO=?, ID_GENERO=?, CURP_EMPLEADO=?, RFC_EMPLEADO=?, TELEFONO_EMPLEADO=?, CONTRATANTE=?, FECHA_CONTRATACION=?, ID_DEPARTAMENTO=?, ID_ROL=? WHERE ID_EMPLEADO=?";
+        // --- 2. Actualizar la tabla de empleados (SIN ACTUALIZAR EL ROL) ---
+        $sql_empleado = "UPDATE empleados SET NOMBRE_EMPLEADO=?, APELLIDO_PATERNO=?, APELLIDO_MATERNO=?, ID_GENERO=?, CURP_EMPLEADO=?, RFC_EMPLEADO=?, TELEFONO_EMPLEADO=?, CONTRATANTE=?, FECHA_CONTRATACION=?, ID_DEPARTAMENTO=? WHERE ID_EMPLEADO=?";
         $stmt_empleado = $conn->prepare($sql_empleado);
-        $stmt_empleado->bind_param("sssisssisiii", $nombre, $apellido_paterno, $apellido_materno, $genero, $curp, $rfc, $telefono, $contratante, $fecha_contratacion, $departamento, $rol, $id_empleado);
+        // Quitamos el parámetro del rol y ajustamos los tipos de datos
+        $stmt_empleado->bind_param("sssisssisii", $nombre, $apellido_paterno, $apellido_materno, $genero, $curp, $rfc, $telefono, $contratante, $fecha_contratacion, $departamento, $id_empleado);
         $stmt_empleado->execute();
 
         // --- 3. Actualizar la tabla de domicilios ---
@@ -68,8 +69,6 @@ if (!empty($_POST['actualizar_empleado']) && $_POST['actualizar_empleado'] == 'o
 
         // Confirmar cambios
         $conn->commit();
-        // ----- ¡CAMBIO REALIZADO AQUÍ! -----
-        // Se cambia la redirección de 'lista-usuarios.php' a 'index.php'
         echo "<script>alert('Empleado actualizado exitosamente.'); window.location.href='../index.php';</script>";
 
     } catch (Exception $e) {
