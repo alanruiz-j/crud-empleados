@@ -229,6 +229,8 @@ function getCatalogData($conn, $table, $id_field, $name_field, $where = '') {
 
                             <?php if ($edit_mode): ?>
                                 <input type="hidden" name="id_empleado" value="<?= htmlspecialchars($empleado_data['ID_EMPLEADO'] ?? '') ?>">
+
+                                <input type="hidden" name="contratante" value="<?= htmlspecialchars($empleado_data['CONTRATANTE'] ?? '') ?>">
                             <?php endif; ?>
 
                             <?php if ($edit_mode): ?>
