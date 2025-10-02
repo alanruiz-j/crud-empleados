@@ -1,0 +1,312 @@
+<?php
+include 'modelo/conexion.php'; // conexión a la base de datos
+
+$edit_mode = false;
+$empleado_data = []; // Array vacío para los datos del empleado
+$page_title = "Registrar Nuevo Empleado";
+$form_action = "controlador/registro_empleados.php";
+
+// Si se recibe un ID por la URL, activamos el modo de edición
+if (isset($_GET['id']) && is_numeric($_GET['id'])) {
+    $edit_mode = true;
+    $page_title = "Editar Empleado";
+    $form_action = "controlador/actualizar_empleado.php";
+    $id_empleado = intval($_GET['id']);
+
+    // Consulta robusta para obtener todos los datos necesarios del empleado
+    $sql = $conn->prepare("
+        SELECT 
+            e.*, 
+            d.*,
+            p.ID_PAIS,
+            est.ID_ESTADO,
+            (SELECT c.CORREO_EMPLEADO FROM correos c WHERE c.ID_EMPLEADO = e.ID_EMPLEADO AND c.TIPO_CORREO = 'principal' LIMIT 1) as correo_principal,
+            (SELECT c.CORREO_EMPLEADO FROM correos c WHERE c.ID_EMPLEADO = e.ID_EMPLEADO AND c.TIPO_CORREO = 'secundario' LIMIT 1) as correo_secundario
+        FROM empleados e
+        LEFT JOIN domicilios d ON e.ID_DOMICILIO = d.ID_DOMICILIO
+        LEFT JOIN municipios m ON d.ID_MUNICIPIO = m.ID_MUNICIPIO
+        LEFT JOIN estados est ON m.ID_ESTADO = est.ID_ESTADO
+        LEFT JOIN paises p ON est.ID_PAIS = p.ID_PAIS
+        WHERE e.ID_EMPLEADO = ?
+    ");
+    $sql->bind_param("i", $id_empleado);
+    $sql->execute();
+    $result = $sql->get_result();
+    if ($result->num_rows > 0) {
+        $empleado_data = $result->fetch_assoc();
+    } else {
+        // Si no se encuentra el empleado, redirigir o mostrar un error
+        header("Location: lista-usuarios.php");
+        exit;
+    }
+}
+?>
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?= $page_title ?></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" href="user-solid-full.ico">
+</head>
+<body>
+
+    <div class="container mt-5 mb-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <h1 class="h4 mb-0"><?= $page_title ?></h1>
+                        <a href="lista-usuarios.php" class="btn btn-light">Ver Lista de Empleados</a>
+                    </div>
+                    <div class="card-body">
+                        <form id="employeeForm" class="needs-validation" novalidate method="POST" action="<?= $form_action ?>">
+                            
+                            <?php if ($edit_mode): ?>
+                                <input type="hidden" name="id_empleado" value="<?= htmlspecialchars($empleado_data['ID_EMPLEADO'] ?? '') ?>">
+                            <?php endif; ?>
+
+                            <?php if ($edit_mode): ?>
+                                <h2 class="h5 border-bottom pb-2 mb-3">Detalles del Empleado</h2>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">ID de Empleado</label>
+                                        <input type="text" class="form-control" value="<?= htmlspecialchars($empleado_data['ID_EMPLEADO'] ?? '') ?>" readonly style="background-color: #e9ecef;">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="fecha_contratacion" class="form-label">Fecha de Contratación</label>
+                                        <input type="date" class="form-control" id="fecha_contratacion" name="fecha_contratacion_empleado" value="<?= htmlspecialchars($empleado_data['FECHA_CONTRATACION'] ?? '') ?>">
+                                    </div>
+                                </div>
+                                <hr class="my-4">
+                            <?php endif; ?>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="contratante" class="form-label">Contratante</label>
+                                    <input type="number" class="form-control" id="contratante" placeholder="ID del Contratante" name="contratante_empleado" value="<?= htmlspecialchars($empleado_data['CONTRATANTE'] ?? '1') ?>">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="departamento" class="form-label">Departamento</label>
+                                    <select class="form-select" id="departamento" name="departamento_empleado">
+                                        <option selected disabled value="">Seleccione...</option>
+                                        <?php
+                                            $sql_dept = $conn->query("SELECT ID_DEPARTAMENTO, NOMBRE_DEPARTAMENTO FROM departamentos ORDER BY NOMBRE_DEPARTAMENTO");
+                                            while ($datos_dept = $sql_dept->fetch_assoc()) {
+                                                $selected = (isset($empleado_data['ID_DEPARTAMENTO']) && $empleado_data['ID_DEPARTAMENTO'] == $datos_dept['ID_DEPARTAMENTO']) ? 'selected' : '';
+                                                echo "<option value='" . $datos_dept['ID_DEPARTAMENTO'] . "' $selected>" . htmlspecialchars($datos_dept['NOMBRE_DEPARTAMENTO']) . "</option>";
+                                            }
+                                        ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <hr class="my-4">
+
+                            <h2 class="h5 border-bottom pb-2 mb-3">Información Personal</h2>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label for="nombre" class="form-label">Nombre(s) <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="nombre" required name="nombre_empleado" value="<?= htmlspecialchars($empleado_data['NOMBRE_EMPLEADO'] ?? '') ?>">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="apellidoPaterno" class="form-label">Apellido Paterno</label>
+                                    <input type="text" class="form-control" id="apellidoPaterno" name="apellido_paterno_empleado" value="<?= htmlspecialchars($empleado_data['APELLIDO_PATERNO'] ?? '') ?>">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="apellidoMaterno" class="form-label">Apellido Materno</label>
+                                    <input type="text" class="form-control" id="apellidoMaterno" name="apellido_materno_empleado" value="<?= htmlspecialchars($empleado_data['APELLIDO_MATERNO'] ?? '') ?>">
+                                </div>
+                            </div>
+
+                            <div class="row g-3 mt-2">
+                                <div class="col-md-4">
+                                    <label for="genero" class="form-label">Género <span class="text-danger">*</span></label>
+                                    <select class="form-select" id="genero" required name="genero_empleado">
+                                        <option selected disabled value="">Seleccione...</option>
+                                        <?php
+                                            $sql_gen = $conn->query("SELECT ID_GENERO, NOMBRE_GENERO FROM generos ORDER BY NOMBRE_GENERO");
+                                            while ($datos_gen = $sql_gen->fetch_assoc()) {
+                                                $selected = (isset($empleado_data['ID_GENERO']) && $empleado_data['ID_GENERO'] == $datos_gen['ID_GENERO']) ? 'selected' : '';
+                                                echo "<option value='" . $datos_gen['ID_GENERO'] . "' $selected>" . htmlspecialchars($datos_gen['NOMBRE_GENERO']) . "</option>";
+                                            }
+                                        ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="curp" class="form-label">CURP <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="curp" required name="curp_empleado" value="<?= htmlspecialchars($empleado_data['CURP_EMPLEADO'] ?? '') ?>">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="rfc" class="form-label">RFC <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="rfc" required name="rfc_empleado" value="<?= htmlspecialchars($empleado_data['RFC_EMPLEADO'] ?? '') ?>">
+                                </div>
+                            </div>
+
+                            <hr class="my-4">
+
+                            <h2 class="h5 border-bottom pb-2 mb-3">Datos de Contacto</h2>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label for="telefono" class="form-label">Teléfono <span class="text-danger">*</span></label>
+                                    <input type="tel" class="form-control" id="telefono" required name="telefono_empleado" value="<?= htmlspecialchars($empleado_data['TELEFONO_EMPLEADO'] ?? '') ?>">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="correoPrincipal" class="form-label">Correo Principal</label>
+                                    <input type="email" class="form-control" id="correoPrincipal" name="correo_principal_empleado" value="<?= htmlspecialchars($empleado_data['correo_principal'] ?? '') ?>">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="correoSecundario" class="form-label">Correo Secundario</label>
+                                    <input type="email" class="form-control" id="correoSecundario" name="correo_secundario_empleado" value="<?= htmlspecialchars($empleado_data['correo_secundario'] ?? '') ?>">
+                                </div>
+                            </div>
+                            
+                            <hr class="my-4">
+
+                            <h2 class="h5 border-bottom pb-2 mb-3">Dirección</h2>
+                            <div class="row g-3">
+                                <div class="col-md-8">
+                                    <label for="calle" class="form-label">Calle <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="calle" required name="calle_empleado" value="<?= htmlspecialchars($empleado_data['CALLE'] ?? '') ?>">
+                                </div>
+                                <div class="col-md-2">
+                                    <label for="numeroExterior" class="form-label">No. Exterior <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="numeroExterior" required name="numero_exterior_empleado" value="<?= htmlspecialchars($empleado_data['NUMERO_EXTERIOR'] ?? '') ?>">
+                                </div>
+                                <div class="col-md-2">
+                                    <label for="numeroInterior" class="form-label">No. Interior</label>
+                                    <input type="text" class="form-control" id="numeroInterior" name="numero_interior_empleado" value="<?= htmlspecialchars($empleado_data['NUMERO_INTERIOR'] ?? '') ?>">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                            <label for="rol_empleado" class="form-label">Rol del Empleado</label>
+                            <select id="rol_empleado" name="rol_empleado" class="form-select" required>
+                                <option value="" selected disabled>-- Seleccionar un rol --</option>
+                                <?php
+                                // Conectamos a la DB para buscar los roles
+                                include 'modelo/conexion.php';
+                                
+                                // Consultamos los roles disponibles
+                                $sql_roles = "SELECT ID_ROL, NOMBRE_ROL FROM ROLES ORDER BY NOMBRE_ROL";
+                                $resultado_roles = $conn->query($sql_roles);
+                                
+                                // Creamos una opción por cada rol
+                                while ($rol = $resultado_roles->fetch_assoc()) {
+                                    echo "<option value='" . $rol['ID_ROL'] . "'>" . $rol['NOMBRE_ROL'] . "</option>";
+                                }
+                                ?>
+                            </select>
+                        </div>
+                             <div class="row g-3 mt-2">
+                                <div class="col-md-6">
+                                    <label for="colonia" class="form-label">Colonia <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="colonia" required name="colonia_empleado" value="<?= htmlspecialchars($empleado_data['COLONIA'] ?? '') ?>">
+                                </div>
+                            </div>
+
+                            <div class="row g-3 mt-2">
+                                <div class="col-md-4">
+                                    <label for="pais" class="form-label">País <span class="text-danger">*</span></label>
+                                    <select class="form-select" id="pais" name="pais_empleado" required>
+                                        <option value="">Seleccione un País...</option>
+                                        <?php
+                                            $sql_pais = $conn->query("SELECT ID_PAIS, NOMBRE_PAIS FROM paises ORDER BY NOMBRE_PAIS");
+                                            while ($datos_pais = $sql_pais->fetch_assoc()) {
+                                                $selected = (isset($empleado_data['ID_PAIS']) && $empleado_data['ID_PAIS'] == $datos_pais['ID_PAIS']) ? 'selected' : '';
+                                                echo "<option value='" . $datos_pais['ID_PAIS'] . "' $selected>" . htmlspecialchars($datos_pais['NOMBRE_PAIS']) . "</option>";
+                                            }
+                                        ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="estado" class="form-label">Estado <span class="text-danger">*</span></label>
+                                    <select class="form-select" id="estado" name="estado_empleado" required <?= !$edit_mode ? 'disabled' : '' ?>>
+                                        <option value="">Seleccione un Estado...</option>
+                                        <?php
+                                        if ($edit_mode && !empty($empleado_data['ID_PAIS'])) {
+                                            $id_pais_sel = $empleado_data['ID_PAIS'];
+                                            $sql_estados = $conn->query("SELECT ID_ESTADO, NOMBRE_ESTADO FROM estados WHERE ID_PAIS = $id_pais_sel ORDER BY NOMBRE_ESTADO");
+                                            while ($datos_estado = $sql_estados->fetch_assoc()) {
+                                                $selected = (isset($empleado_data['ID_ESTADO']) && $empleado_data['ID_ESTADO'] == $datos_estado['ID_ESTADO']) ? 'selected' : '';
+                                                echo "<option value='" . $datos_estado['ID_ESTADO'] . "' $selected>" . htmlspecialchars($datos_estado['NOMBRE_ESTADO']) . "</option>";
+                                            }
+                                        }
+                                        ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="municipio" class="form-label">Municipio <span class="text-danger">*</span></label>
+                                    <select class="form-select" id="municipio" name="municipio_empleado" required <?= !$edit_mode ? 'disabled' : '' ?>>
+                                        <option value="">Seleccione un Municipio...</option>
+                                        <?php
+                                        if ($edit_mode && !empty($empleado_data['ID_ESTADO'])) {
+                                            $id_estado_sel = $empleado_data['ID_ESTADO'];
+                                            $sql_muni = $conn->query("SELECT ID_MUNICIPIO, NOMBRE_MUNICIPIO FROM municipios WHERE ID_ESTADO = $id_estado_sel ORDER BY NOMBRE_MUNICIPIO");
+                                            while ($datos_muni = $sql_muni->fetch_assoc()) {
+                                                $selected = (isset($empleado_data['ID_MUNICIPIO']) && $empleado_data['ID_MUNICIPIO'] == $datos_muni['ID_MUNICIPIO']) ? 'selected' : '';
+                                                echo "<option value='" . $datos_muni['ID_MUNICIPIO'] . "' $selected>" . htmlspecialchars($datos_muni['NOMBRE_MUNICIPIO']) . "</option>";
+                                            }
+                                        }
+                                        ?>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <hr class="my-4">
+
+                            <div class="d-grid">
+                                <button class="btn btn-primary btn-lg" type="submit" name="<?= $edit_mode ? 'actualizar_empleado' : 'guardar_empleado' ?>" value="ok">
+                                    <?= $edit_mode ? 'Actualizar Cambios' : 'Guardar Empleado' ?>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        $(document).ready(function(){
+            $('#pais').on('change', function(){
+                var paisId = $(this).val();
+                if(paisId){
+                    $.ajax({
+                        type: 'POST',
+                        url: 'get_ubicaciones.php',
+                        data: 'pais_id=' + paisId,
+                        success: function(html){
+                            $('#estado').html(html).prop('disabled', false); 
+                            $('#municipio').html('<option value="">Seleccione un Municipio...</option>').prop('disabled', true);
+                        }
+                    }); 
+                } else {
+                    $('#estado').html('<option value="">Seleccione un Estado...</option>').prop('disabled', true);
+                    $('#municipio').html('<option value="">Seleccione un Municipio...</option>').prop('disabled', true);
+                }
+            });
+
+            $('#estado').on('change', function(){
+                var estadoId = $(this).val();
+                if(estadoId){
+                    $.ajax({
+                        type: 'POST',
+                        url: 'get_ubicaciones.php',
+                        data: 'estado_id=' + estadoId,
+                        success: function(html){
+                            $('#municipio').html(html).prop('disabled', false);
+                        }
+                    }); 
+                } else {
+                    $('#municipio').html('<option value="">Seleccione un Municipio...</option>').prop('disabled', true);
+                }
+            });
+        });
+    </script>
+    
+    </body>
+</html>
