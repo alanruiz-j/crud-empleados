@@ -351,12 +351,12 @@ function getCatalogData($conn, $table, $id_field, $name_field, $where = '') {
                                 </div>
                                 <div class="col-md-2">
                                     <label for="numeroExterior" class="form-label">No. Exterior <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control <?= hasError('numero_exterior_empleado') ?> <?= hasSuccess('numero_exterior_empleado') ?>" id="numeroExterior" required name="numero_exterior_empleado" value="<?= get_value('numero_exterior_empleado', 'NUMERO_EXTERIOR') ?>" maxlength="255">
+                                    <input type="text" class="form-control <?= hasError('numero_exterior_empleado') ?>" id="numeroExterior" required name="numero_exterior_empleado" value="<?= get_value('numero_exterior_empleado', 'NUMERO_EXTERIOR') ?>" maxlength="255" pattern="[0-9]+" title="Este campo solo acepta números">
                                     <?= showError('numero_exterior_empleado') ?>
                                 </div>
                                 <div class="col-md-2">
                                     <label for="numeroInterior" class="form-label">No. Interior</label>
-                                    <input type="text" class="form-control <?= hasError('numero_interior_empleado') ?> <?= hasSuccess('numero_interior_empleado') ?>" id="numeroInterior" name="numero_interior_empleado" value="<?= get_value('numero_interior_empleado', 'NUMERO_INTERIOR') ?>" maxlength="255">
+                                    <input type="text" class="form-control" id="numeroInterior" name="numero_interior_empleado" value="<?= get_value('numero_interior_empleado', 'NUMERO_INTERIOR') ?>" maxlength="255" pattern="[0-9]*" title="Este campo solo acepta números">
                                     <?= showError('numero_interior_empleado') ?>
                                 </div>
                             </div>
