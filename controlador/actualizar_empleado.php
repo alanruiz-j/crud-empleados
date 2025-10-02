@@ -34,7 +34,7 @@ if (isset($_POST['actualizar_empleado']) && $_POST['actualizar_empleado'] == 'ok
         $numero_interior    = $_POST['numero_interior_empleado'];
         $colonia            = $_POST['colonia_empleado'];
         $municipio          = $_POST['municipio_empleado'];
-        $fecha_contratacion = $_POST['fecha_contratacion_empleado'];
+        $fecha_contratacion = $fecha_contratacion = !empty($_POST['fecha_contratacion_empleado']) ? $_POST['fecha_contratacion_empleado'] : date('Y-m-d');;
         $contratante        = !empty($_POST['contratante']) ? $_POST['contratante'] : null;
 
         // --- 2. Verificaciones manuales de duplicados ---
@@ -76,7 +76,7 @@ if (isset($_POST['actualizar_empleado']) && $_POST['actualizar_empleado'] == 'ok
                             FECHA_CONTRATACION = ?, ID_DEPARTAMENTO = ?, CONTRATANTE = ? 
                         WHERE ID_EMPLEADO = ?";
         $stmt_empleado = $conn->prepare($sql_empleado);
-        $stmt_empleado->bind_param("sssisssisii", $nombre, $apellido_paterno, $apellido_materno, $genero, $curp, $rfc, $telefono, $fecha_contratacion, $departamento, $contratante, $id_empleado);
+        $stmt_empleado->bind_param("sssissssiii", $nombre, $apellido_paterno, $apellido_materno, $genero, $curp, $rfc, $telefono, $fecha_contratacion, $departamento, $contratante, $id_empleado);
         $stmt_empleado->execute();
 
         // --- 4. Actualizar tabla 'domicilios' ---

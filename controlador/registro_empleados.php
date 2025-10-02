@@ -28,7 +28,7 @@ if (!empty($_POST['guardar_empleado']) && $_POST['guardar_empleado'] == 'ok') {
         $numero_interior    = $_POST['numero_interior_empleado'];
         $colonia            = $_POST['colonia_empleado'];
         $municipio          = $_POST['municipio_empleado'];
-        $fecha_contratacion = date('Y-m-d');
+        $fecha_contratacion = $fecha_contratacion = !empty($_POST['fecha_contratacion_empleado']) ? $_POST['fecha_contratacion_empleado'] : date('Y-m-d');;
         $id_rol = 2; // Rol de operador
         $contratante = isset($_SESSION['id_usuario']) ? $_SESSION['id_usuario'] : null;
 
