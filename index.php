@@ -4,8 +4,10 @@ include 'modelo/conexion.php';
 // Iniciar sesión para manejar errores
 session_start();
 // Verificar si el usuario está logueado
-if (!isset($_SESSION['user_id'])) {
+if (!isset($_SESSION['id_usuario'])) {
+    // Lo redirige a la página de login.
     header('Location: login.php');
+    // Detiene la ejecución del resto de la página.
     exit;
 }
 

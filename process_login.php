@@ -1,7 +1,7 @@
 <?php
 session_start();
 
-// CONEXIÓN DIRECTA - mejor usar esto para evitar problemas de rutas
+// CONEXIÓN DIRECTA
 $servername = "localhost";
 $username = "root";
 $password = "";
@@ -11,26 +11,27 @@ $conn = new mysqli($servername, $username, $password, $dbname);
 $conn->set_charset("utf8");
 
 if ($conn->connect_error) {
+    // Usar die() aquí es aceptable para un error crítico de conexión.
     die("Error de conexión: " . $conn->connect_error);
 }
 
+// Validar que la solicitud sea por método POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: login.php');
     exit;
 }
 
 $nombre = isset($_POST['nombre']) ? trim($_POST['nombre']) : '';
-$password = isset($_POST['password']) ? $_POST['password'] : '';
+$password_form = isset($_POST['password']) ? $_POST['password'] : ''; // Renombrada para claridad
 
-if ($nombre === '' || $password === '') {
+// Validar que los campos no estén vacíos
+if (empty($nombre) || empty($password_form)) {
     $_SESSION['error'] = "Rellena nombre de usuario y contraseña.";
     header('Location: login.php');
-    exit;
+    exit; // Salir inmediatamente
 }
 
-// CONSULTA CORREGIDA: JOIN con ROLES para obtener la contraseña
-$sql = "SELECT e.ID_EMPLEADO, e.NOMBRE_EMPLEADO, e.APELLIDO_PATERNO, e.ID_ROL, 
-               r.PASSWORD_ROL 
+$sql = "SELECT e.ID_EMPLEADO, e.NOMBRE_EMPLEADO, e.APELLIDO_PATERNO, e.ID_ROL, r.PASSWORD_ROL 
         FROM EMPLEADOS e 
         INNER JOIN ROLES r ON e.ID_ROL = r.ID_ROL 
         WHERE e.NOMBRE_EMPLEADO = ? AND e.ID_ROL = 1 
@@ -39,34 +40,41 @@ $sql = "SELECT e.ID_EMPLEADO, e.NOMBRE_EMPLEADO, e.APELLIDO_PATERNO, e.ID_ROL,
 if ($stmt = $conn->prepare($sql)) {
     $stmt->bind_param('s', $nombre);
     $stmt->execute();
-    $stmt->store_result();
+    $result = $stmt->get_result(); // Usar get_result() es más limpio
     
-    if ($stmt->num_rows === 1) {
-        $stmt->bind_result($id_empleado, $nombre_empleado, $apellido, $id_rol, $password_rol);
-        $stmt->fetch();
+    if ($result->num_rows === 1) {
+        $user = $result->fetch_assoc();
 
-        // Verificar la contraseña (comparación directa con la de ROLES)
-        if ($password === $password_rol) {
+        // Verificar la contraseña
+        if ($password_form === $user['PASSWORD_ROL']) {
             // Login OK
             session_regenerate_id(true);
-            $_SESSION['id_usuario'] = $id_empleado;
-            $_SESSION['user_name'] = $nombre_empleado . ' ' . $apellido;
-            $_SESSION['id_rol'] = $id_rol;
+            $_SESSION['id_usuario'] = $user['ID_EMPLEADO'];
+            $_SESSION['user_name'] = $user['NOMBRE_EMPLEADO'] . ' ' . $user['APELLIDO_PATERNO'];
+            $_SESSION['id_rol'] = $user['ID_ROL'];
 
             header('Location: index.php');
-            exit;
+            exit; // Salir inmediatamente después del éxito
         } else {
+            // Contraseña incorrecta
             $_SESSION['error'] = "Contraseña incorrecta.";
+            header('Location: login.php');
+            exit; // Salir inmediatamente
         }
     } else {
+        // Usuario no encontrado
         $_SESSION['error'] = "Usuario no encontrado o no tiene permisos de administrador.";
+        header('Location: login.php');
+        exit; // Salir inmediatamente
     }
     $stmt->close();
 } else {
-    $_SESSION['error'] = "Error en la consulta: " . $conn->error;
+    // Error en la preparación de la consulta
+    $_SESSION['error'] = "Error en el sistema. Intente de nuevo.";
+    header('Location: login.php');
+    exit; // Salir inmediatamente
 }
 
 $conn->close();
-header('Location: login.php');
-exit;
+
 ?>
