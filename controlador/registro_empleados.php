@@ -94,9 +94,16 @@ if (!empty($_POST['guardar_empleado']) && $_POST['guardar_empleado'] == 'ok') {
             } else {
                 $_SESSION['errores']['general'] = 'Error: Se ha producido un error de duplicado no identificado.';
             }
-        } else {
-             $_SESSION['errores']['general'] = "Error de base de datos: " . $error_message;
-        }
+        } elseif (strpos($error_message, 'CHK_CURP_EMPLEADO') !== false) {
+        $_SESSION['errores']['curp_empleado'] = 'El formato del CURP no es válido.';
+    } 
+    // ✅ AÑADIR ESTAS LÍNEAS
+    elseif (strpos($error_message, 'CHK_RFC_EMPLEADO') !== false) {
+        $_SESSION['errores']['rfc_empleado'] = 'El formato del RFC no es válido.';
+    } 
+    else {
+         $_SESSION['errores']['general'] = "Error de base de datos: " . $error_message;
+    }
         
         // Redirigir de vuelta al formulario
         header('Location: ../index.php');
