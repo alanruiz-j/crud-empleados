@@ -65,26 +65,32 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
     }
 }
 
-// Función para obtener el valor de un campo (prioriza datos de error, luego datos de edición)
-function getFieldValue($field, $default = '') {
+// Función unificada para obtener el valor de un campo.
+// Prioriza datos de un formulario fallido (sesión), luego datos de modo edición (BD), y finalmente un valor por defecto.
+function get_value($form_field_name, $db_field_name = null, $default = '') {
     global $form_data, $empleado_data, $edit_mode;
-    
-    if (!empty($form_data[$field])) {
-        return htmlspecialchars($form_data[$field]);
-    } elseif ($edit_mode && isset($empleado_data[$field])) {
-        return htmlspecialchars($empleado_data[$field]);
+
+    // 1. Prioridad: Datos del formulario guardados en la sesión (tras un error de validación)
+    if (isset($form_data[$form_field_name])) {
+        return htmlspecialchars($form_data[$form_field_name]);
     }
+
+    // 2. Prioridad: Datos de la base de datos cuando estamos en modo de edición
+    if ($edit_mode) {
+        // Si se proporciona un nombre de campo de BD específico, úsalo
+        if ($db_field_name && isset($empleado_data[$db_field_name])) {
+            return htmlspecialchars($empleado_data[$db_field_name]);
+        }
+        // Como alternativa, intenta con el nombre del campo del formulario (útil para alias como 'correo_principal')
+        if (isset($empleado_data[$form_field_name])) {
+             return htmlspecialchars($empleado_data[$form_field_name]);
+        }
+    }
+
+    // 3. Prioridad: Valor por defecto
     return $default;
 }
 
-// Función específica para campos de la tabla empleados
-function getEmpleadoValue($field, $default = '') {
-    global $empleado_data, $edit_mode;
-    if ($edit_mode && isset($empleado_data[$field])) {
-        return htmlspecialchars($empleado_data[$field]);
-    }
-    return $default;
-}
 
 // Función para verificar si un campo tiene error
 function hasError($field) {
@@ -94,10 +100,12 @@ function hasError($field) {
 
 // Función para verificar si un campo está correcto (sin error y con valor)
 function hasSuccess($field) {
-    global $errores, $form_data;
+    global $errores, $form_data, $_POST;
+    // Considera éxito si hay datos en form_data o POST, y no hay error para ese campo.
     $hasValue = !empty($form_data[$field]) || (!empty($_POST[$field]) && !isset($errores[$field]));
     return !isset($errores[$field]) && $hasValue ? 'is-valid' : '';
 }
+
 
 // Función para mostrar mensaje de error
 function showError($field) {
@@ -232,7 +240,7 @@ function getCatalogData($conn, $table, $id_field, $name_field, $where = '') {
                                     </div>
                                     <div class="col-md-6">
                                         <label for="fecha_contratacion" class="form-label">Fecha de Contratación</label>
-                                        <input type="date" class="form-control" id="fecha_contratacion" name="fecha_contratacion_empleado" value="<?= getEmpleadoValue('FECHA_CONTRATACION') ?>">
+                                        <input type="date" class="form-control" id="fecha_contratacion" name="fecha_contratacion_empleado" value="<?= get_value('fecha_contratacion_empleado', 'FECHA_CONTRATACION') ?>">
                                     </div>
                                 </div>
                                 <hr class="my-4">
@@ -242,17 +250,17 @@ function getCatalogData($conn, $table, $id_field, $name_field, $where = '') {
                             <div class="row g-3">
                                 <div class="col-md-4">
                                     <label for="nombre" class="form-label">Nombre(s) <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control <?= hasError('nombre_empleado') ?> <?= hasSuccess('nombre_empleado') ?>" id="nombre" required name="nombre_empleado" value="<?= getEmpleadoValue('NOMBRE_EMPLEADO') ?>">
+                                    <input type="text" class="form-control <?= hasError('nombre_empleado') ?> <?= hasSuccess('nombre_empleado') ?>" id="nombre" required name="nombre_empleado" value="<?= get_value('nombre_empleado', 'NOMBRE_EMPLEADO') ?>">
                                     <?= showError('nombre_empleado') ?>
                                 </div>
                                 <div class="col-md-4">
                                     <label for="apellidoPaterno" class="form-label">Apellido Paterno</label>
-                                    <input type="text" class="form-control <?= hasError('apellido_paterno_empleado') ?> <?= hasSuccess('apellido_paterno_empleado') ?>" id="apellidoPaterno" name="apellido_paterno_empleado" value="<?= getEmpleadoValue('APELLIDO_PATERNO') ?>">
+                                    <input type="text" class="form-control <?= hasError('apellido_paterno_empleado') ?> <?= hasSuccess('apellido_paterno_empleado') ?>" id="apellidoPaterno" name="apellido_paterno_empleado" value="<?= get_value('apellido_paterno_empleado', 'APELLIDO_PATERNO') ?>">
                                     <?= showError('apellido_paterno_empleado') ?>
                                 </div>
                                 <div class="col-md-4">
                                     <label for="apellidoMaterno" class="form-label">Apellido Materno</label>
-                                    <input type="text" class="form-control <?= hasError('apellido_materno_empleado') ?> <?= hasSuccess('apellido_materno_empleado') ?>" id="apellidoMaterno" name="apellido_materno_empleado" value="<?= getEmpleadoValue('APELLIDO_MATERNO') ?>">
+                                    <input type="text" class="form-control <?= hasError('apellido_materno_empleado') ?> <?= hasSuccess('apellido_materno_empleado') ?>" id="apellidoMaterno" name="apellido_materno_empleado" value="<?= get_value('apellido_materno_empleado', 'APELLIDO_MATERNO') ?>">
                                     <?= showError('apellido_materno_empleado') ?>
                                 </div>
                             </div>
@@ -264,7 +272,7 @@ function getCatalogData($conn, $table, $id_field, $name_field, $where = '') {
                                         <option selected disabled value="" class="select-placeholder">Seleccione...</option>
                                         <?php
                                         $generos = getCatalogData($conn, 'generos', 'ID_GENERO', 'NOMBRE_GENERO', 'WHERE ESTADO_GENERO = 1');
-                                        $selected_genero = getEmpleadoValue('ID_GENERO');
+                                        $selected_genero = get_value('genero_empleado', 'ID_GENERO');
                                         foreach ($generos as $genero) {
                                             $selected = ($selected_genero == $genero['ID_GENERO']) ? 'selected' : '';
                                             echo "<option value='" . $genero['ID_GENERO'] . "' $selected>" . htmlspecialchars($genero['NOMBRE_GENERO']) . "</option>";
@@ -278,12 +286,12 @@ function getCatalogData($conn, $table, $id_field, $name_field, $where = '') {
                                 </div>
                                 <div class="col-md-4">
                                     <label for="curp" class="form-label">CURP <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control <?= hasError('curp_empleado') ?> <?= hasSuccess('curp_empleado') ?>" id="curp" required name="curp_empleado" value="<?= getEmpleadoValue('CURP_EMPLEADO') ?>">
+                                    <input type="text" class="form-control <?= hasError('curp_empleado') ?> <?= hasSuccess('curp_empleado') ?>" id="curp" required name="curp_empleado" value="<?= get_value('curp_empleado', 'CURP_EMPLEADO') ?>">
                                     <?= showError('curp_empleado') ?>
                                 </div>
                                 <div class="col-md-4">
                                     <label for="rfc" class="form-label">RFC <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control <?= hasError('rfc_empleado') ?> <?= hasSuccess('rfc_empleado') ?>" id="rfc" required name="rfc_empleado" value="<?= getEmpleadoValue('RFC_EMPLEADO') ?>">
+                                    <input type="text" class="form-control <?= hasError('rfc_empleado') ?> <?= hasSuccess('rfc_empleado') ?>" id="rfc" required name="rfc_empleado" value="<?= get_value('rfc_empleado', 'RFC_EMPLEADO') ?>">
                                     <?= showError('rfc_empleado') ?>
                                 </div>
                             </div>
@@ -295,7 +303,7 @@ function getCatalogData($conn, $table, $id_field, $name_field, $where = '') {
                                         <option selected disabled value="" class="select-placeholder">Seleccione...</option>
                                         <?php
                                         $departamentos = getCatalogData($conn, 'departamentos', 'ID_DEPARTAMENTO', 'NOMBRE_DEPARTAMENTO', 'WHERE ESTADO_DEPARTAMENTO = 1');
-                                        $selected_dept = getEmpleadoValue('ID_DEPARTAMENTO');
+                                        $selected_dept = get_value('departamento_empleado', 'ID_DEPARTAMENTO');
                                         foreach ($departamentos as $dept) {
                                             $selected = ($selected_dept == $dept['ID_DEPARTAMENTO']) ? 'selected' : '';
                                             echo "<option value='" . $dept['ID_DEPARTAMENTO'] . "' $selected>" . htmlspecialchars($dept['NOMBRE_DEPARTAMENTO']) . "</option>";
@@ -315,17 +323,17 @@ function getCatalogData($conn, $table, $id_field, $name_field, $where = '') {
                             <div class="row g-3">
                                 <div class="col-md-4">
                                     <label for="telefono" class="form-label">Teléfono <span class="text-danger">*</span></label>
-                                    <input type="tel" class="form-control <?= hasError('telefono_empleado') ?> <?= hasSuccess('telefono_empleado') ?>" id="telefono" required name="telefono_empleado" value="<?= getEmpleadoValue('TELEFONO_EMPLEADO') ?>">
+                                    <input type="tel" class="form-control <?= hasError('telefono_empleado') ?> <?= hasSuccess('telefono_empleado') ?>" id="telefono" required name="telefono_empleado" value="<?= get_value('telefono_empleado', 'TELEFONO_EMPLEADO') ?>">
                                     <?= showError('telefono_empleado') ?>
                                 </div>
                                 <div class="col-md-4">
                                     <label for="correoPrincipal" class="form-label">Correo Principal <span class="text-danger">*</span></label>
-                                    <input type="email" class="form-control <?= hasError('correo_principal_empleado') ?> <?= hasSuccess('correo_principal_empleado') ?>" id="correoPrincipal" required name="correo_principal_empleado" value="<?= getEmpleadoValue('correo_principal') ?>">
+                                    <input type="email" class="form-control <?= hasError('correo_principal_empleado') ?> <?= hasSuccess('correo_principal_empleado') ?>" id="correoPrincipal" required name="correo_principal_empleado" value="<?= get_value('correo_principal_empleado', 'correo_principal') ?>">
                                     <?= showError('correo_principal_empleado') ?>
                                 </div>
                                 <div class="col-md-4">
                                     <label for="correoSecundario" class="form-label">Correo Secundario</label>
-                                    <input type="email" class="form-control <?= hasError('correo_secundario_empleado') ?> <?= hasSuccess('correo_secundario_empleado') ?>" id="correoSecundario" name="correo_secundario_empleado" value="<?= getEmpleadoValue('correo_secundario') ?>">
+                                    <input type="email" class="form-control <?= hasError('correo_secundario_empleado') ?> <?= hasSuccess('correo_secundario_empleado') ?>" id="correoSecundario" name="correo_secundario_empleado" value="<?= get_value('correo_secundario_empleado', 'correo_secundario') ?>">
                                     <?= showError('correo_secundario_empleado') ?>
                                 </div>
                             </div>
@@ -336,24 +344,24 @@ function getCatalogData($conn, $table, $id_field, $name_field, $where = '') {
                             <div class="row g-3">
                                 <div class="col-md-8">
                                     <label for="calle" class="form-label">Calle <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control <?= hasError('calle_empleado') ?> <?= hasSuccess('calle_empleado') ?>" id="calle" required name="calle_empleado" value="<?= getEmpleadoValue('CALLE') ?>">
+                                    <input type="text" class="form-control <?= hasError('calle_empleado') ?> <?= hasSuccess('calle_empleado') ?>" id="calle" required name="calle_empleado" value="<?= get_value('calle_empleado', 'CALLE') ?>">
                                     <?= showError('calle_empleado') ?>
                                 </div>
                                 <div class="col-md-2">
                                     <label for="numeroExterior" class="form-label">No. Exterior <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control <?= hasError('numero_exterior_empleado') ?> <?= hasSuccess('numero_exterior_empleado') ?>" id="numeroExterior" required name="numero_exterior_empleado" value="<?= getEmpleadoValue('NUMERO_EXTERIOR') ?>">
+                                    <input type="text" class="form-control <?= hasError('numero_exterior_empleado') ?> <?= hasSuccess('numero_exterior_empleado') ?>" id="numeroExterior" required name="numero_exterior_empleado" value="<?= get_value('numero_exterior_empleado', 'NUMERO_EXTERIOR') ?>">
                                     <?= showError('numero_exterior_empleado') ?>
                                 </div>
                                 <div class="col-md-2">
                                     <label for="numeroInterior" class="form-label">No. Interior</label>
-                                    <input type="text" class="form-control <?= hasError('numero_interior_empleado') ?> <?= hasSuccess('numero_interior_empleado') ?>" id="numeroInterior" name="numero_interior_empleado" value="<?= getEmpleadoValue('NUMERO_INTERIOR') ?>">
+                                    <input type="text" class="form-control <?= hasError('numero_interior_empleado') ?> <?= hasSuccess('numero_interior_empleado') ?>" id="numeroInterior" name="numero_interior_empleado" value="<?= get_value('numero_interior_empleado', 'NUMERO_INTERIOR') ?>">
                                     <?= showError('numero_interior_empleado') ?>
                                 </div>
                             </div>
                             <div class="row g-3 mt-2">
                                 <div class="col-md-12">
                                     <label for="colonia" class="form-label">Colonia <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control <?= hasError('colonia_empleado') ?> <?= hasSuccess('colonia_empleado') ?>" id="colonia" required name="colonia_empleado" value="<?= getEmpleadoValue('COLONIA') ?>">
+                                    <input type="text" class="form-control <?= hasError('colonia_empleado') ?> <?= hasSuccess('colonia_empleado') ?>" id="colonia" required name="colonia_empleado" value="<?= get_value('colonia_empleado', 'COLONIA') ?>">
                                     <?= showError('colonia_empleado') ?>
                                 </div>
                             </div>
@@ -365,7 +373,7 @@ function getCatalogData($conn, $table, $id_field, $name_field, $where = '') {
                                         <option value="" class="select-placeholder">Seleccione un País...</option>
                                         <?php
                                         $paises = getCatalogData($conn, 'paises', 'ID_PAIS', 'NOMBRE_PAIS', 'WHERE ESTADO_PAIS = 1');
-                                        $selected_pais = getEmpleadoValue('ID_PAIS');
+                                        $selected_pais = get_value('pais_empleado', 'ID_PAIS');
                                         foreach ($paises as $pais) {
                                             $selected = ($selected_pais == $pais['ID_PAIS']) ? 'selected' : '';
                                             echo "<option value='" . $pais['ID_PAIS'] . "' $selected>" . htmlspecialchars($pais['NOMBRE_PAIS']) . "</option>";
@@ -382,9 +390,10 @@ function getCatalogData($conn, $table, $id_field, $name_field, $where = '') {
                                     <select class="form-select <?= hasError('estado_empleado') ?> <?= hasSuccess('estado_empleado') ?>" id="estado" name="estado_empleado" required>
                                         <option value="" class="select-placeholder">Seleccione un Estado...</option>
                                         <?php
-                                        $selected_estado = getEmpleadoValue('ID_ESTADO');
-                                        if ($edit_mode && !empty($empleado_data['ID_PAIS'])) {
-                                            $estados = getCatalogData($conn, 'estados', 'ID_ESTADO', 'NOMBRE_ESTADO', 'WHERE ID_PAIS = ' . $empleado_data['ID_PAIS'] . ' AND ESTADO_ESTADO = 1');
+                                        $selected_estado = get_value('estado_empleado', 'ID_ESTADO');
+                                        if (!empty(get_value('pais_empleado', 'ID_PAIS'))) {
+                                            $id_pais_seleccionado = get_value('pais_empleado', 'ID_PAIS');
+                                            $estados = getCatalogData($conn, 'estados', 'ID_ESTADO', 'NOMBRE_ESTADO', 'WHERE ID_PAIS = ' . $id_pais_seleccionado . ' AND ESTADO_ESTADO = 1');
                                             foreach ($estados as $estado) {
                                                 $selected = ($selected_estado == $estado['ID_ESTADO']) ? 'selected' : '';
                                                 echo "<option value='" . $estado['ID_ESTADO'] . "' $selected>" . htmlspecialchars($estado['NOMBRE_ESTADO']) . "</option>";
@@ -399,9 +408,10 @@ function getCatalogData($conn, $table, $id_field, $name_field, $where = '') {
                                     <select class="form-select <?= hasError('municipio_empleado') ?> <?= hasSuccess('municipio_empleado') ?>" id="municipio" name="municipio_empleado" required>
                                         <option value="" class="select-placeholder">Seleccione un Municipio...</option>
                                         <?php
-                                        $selected_municipio = getEmpleadoValue('ID_MUNICIPIO');
-                                        if ($edit_mode && !empty($empleado_data['ID_ESTADO'])) {
-                                            $municipios = getCatalogData($conn, 'municipios', 'ID_MUNICIPIO', 'NOMBRE_MUNICIPIO', 'WHERE ID_ESTADO = ' . $empleado_data['ID_ESTADO'] . ' AND ESTADO_MUNICIPIO = 1');
+                                        $selected_municipio = get_value('municipio_empleado', 'ID_MUNICIPIO');
+                                        if (!empty(get_value('estado_empleado', 'ID_ESTADO'))) {
+                                            $id_estado_seleccionado = get_value('estado_empleado', 'ID_ESTADO');
+                                            $municipios = getCatalogData($conn, 'municipios', 'ID_MUNICIPIO', 'NOMBRE_MUNICIPIO', 'WHERE ID_ESTADO = ' . $id_estado_seleccionado . ' AND ESTADO_MUNICIPIO = 1');
                                             foreach ($municipios as $municipio) {
                                                 $selected = ($selected_municipio == $municipio['ID_MUNICIPIO']) ? 'selected' : '';
                                                 echo "<option value='" . $municipio['ID_MUNICIPIO'] . "' $selected>" . htmlspecialchars($municipio['NOMBRE_MUNICIPIO']) . "</option>";
@@ -450,21 +460,17 @@ function getCatalogData($conn, $table, $id_field, $name_field, $where = '') {
         }
 
         $(document).ready(function() {
-            // Habilitar los selects de estado y municipio desde el inicio
-            $('#estado').prop('disabled', false);
-            $('#municipio').prop('disabled', false);
-
-            // Cargar estados si ya hay un país seleccionado
+            // Cargar estados y municipios si ya hay valores seleccionados (por error o edición)
             var paisSeleccionado = $('#pais').val();
             if (paisSeleccionado) {
-                cargarEstados(paisSeleccionado);
+                cargarEstados(paisSeleccionado, '<?= get_value("estado_empleado", "ID_ESTADO") ?>');
+            }
+            
+            var estadoSeleccionado = '<?= get_value("estado_empleado", "ID_ESTADO") ?>';
+            if(estadoSeleccionado){
+                 cargarMunicipios(estadoSeleccionado, '<?= get_value("municipio_empleado", "ID_MUNICIPIO") ?>');
             }
 
-            // Cargar municipios si ya hay un estado seleccionado
-            var estadoSeleccionado = $('#estado').val();
-            if (estadoSeleccionado) {
-                cargarMunicipios(estadoSeleccionado);
-            }
 
             // Validación en tiempo real para campos obligatorios
             $('input[required], select[required]').on('blur change', function() {
@@ -472,7 +478,7 @@ function getCatalogData($conn, $table, $id_field, $name_field, $where = '') {
             });
 
             function validateField($field) {
-                if ($field.val().trim() === '') {
+                if ($field.val() === null || $field.val().trim() === '') {
                     $field.removeClass('is-valid').addClass('is-invalid');
                 } else {
                     $field.removeClass('is-invalid').addClass('is-valid');
@@ -482,44 +488,36 @@ function getCatalogData($conn, $table, $id_field, $name_field, $where = '') {
             // ----- AJAX para cargar estados cuando cambia el país -----
             $('#pais').on('change', function() {
                 var paisId = $(this).val();
+                validateField($(this));
                 if (paisId) {
                     cargarEstados(paisId);
-                    validateField($(this));
                 } else {
-                    $('#estado').html('<option value="" class="select-placeholder">Seleccione un Estado...</option>').prop('disabled', false);
-                    $('#municipio').html('<option value="" class="select-placeholder">Seleccione un Municipio...</option>').prop('disabled', false);
-                    validateField($(this));
+                    $('#estado').html('<option value="" class="select-placeholder">Seleccione un Estado...</option>');
+                    $('#municipio').html('<option value="" class="select-placeholder">Seleccione un Municipio...</option>');
                 }
             });
 
             $('#estado').on('change', function() {
                 var estadoId = $(this).val();
+                 validateField($(this));
                 if (estadoId) {
                     cargarMunicipios(estadoId);
-                    validateField($(this));
                 } else {
-                    $('#municipio').html('<option value="" class="select-placeholder">Seleccione un Municipio...</option>').prop('disabled', false);
-                    validateField($(this));
+                    $('#municipio').html('<option value="" class="select-placeholder">Seleccione un Municipio...</option>');
                 }
             });
 
-            function cargarEstados(paisId) {
+            function cargarEstados(paisId, estadoSeleccionado = null) {
                 $.ajax({
                     type: 'POST',
                     url: 'get_ubicaciones.php',
-                    data: 'pais_id=' + paisId,
+                    data: { pais_id: paisId },
                     success: function(html) {
-                        $('#estado').html(html).prop('disabled', false);
-                        $('#municipio').html('<option value="" class="select-placeholder">Seleccione un Municipio...</option>').prop('disabled', false);
-                        
-                        // Si hay un estado seleccionado previamente, seleccionarlo
-                        var estadoSeleccionado = '<?= getEmpleadoValue("ID_ESTADO") ?>';
+                        $('#estado').html(html);
                         if (estadoSeleccionado) {
                             $('#estado').val(estadoSeleccionado);
-                            if ($('#estado').val() == estadoSeleccionado) {
-                                cargarMunicipios(estadoSeleccionado);
-                            }
                         }
+                        $('#municipio').html('<option value="" class="select-placeholder">Seleccione un Municipio...</option>');
                     },
                     error: function() {
                         $('#estado').html('<option value="" class="select-placeholder">Error al cargar estados</option>');
@@ -527,16 +525,13 @@ function getCatalogData($conn, $table, $id_field, $name_field, $where = '') {
                 });
             }
 
-            function cargarMunicipios(estadoId) {
+            function cargarMunicipios(estadoId, municipioSeleccionado = null) {
                 $.ajax({
                     type: 'POST',
                     url: 'get_ubicaciones.php',
-                    data: 'estado_id=' + estadoId,
+                    data: { estado_id: estadoId },
                     success: function(html) {
-                        $('#municipio').html(html).prop('disabled', false);
-                        
-                        // Si hay un municipio seleccionado previamente, seleccionarlo
-                        var municipioSeleccionado = '<?= getEmpleadoValue("ID_MUNICIPIO") ?>';
+                        $('#municipio').html(html);
                         if (municipioSeleccionado) {
                             $('#municipio').val(municipioSeleccionado);
                         }
@@ -560,4 +555,4 @@ function getCatalogData($conn, $table, $id_field, $name_field, $where = '') {
 
 </body>
 
-</html>
+</html> 
