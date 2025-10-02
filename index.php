@@ -252,17 +252,17 @@ function getCatalogData($conn, $table, $id_field, $name_field, $where = '') {
                             <div class="row g-3">
                                 <div class="col-md-4">
                                     <label for="nombre" class="form-label">Nombre(s) <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control <?= hasError('nombre_empleado') ?> <?= hasSuccess('nombre_empleado') ?>" id="nombre" required name="nombre_empleado" value="<?= get_value('nombre_empleado', 'NOMBRE_EMPLEADO') ?>">
+                                    <input type="text" class="form-control <?= hasError('nombre_empleado') ?> <?= hasSuccess('nombre_empleado') ?>" id="nombre" required name="nombre_empleado" value="<?= get_value('nombre_empleado', 'NOMBRE_EMPLEADO') ?>" maxlength="255">
                                     <?= showError('nombre_empleado') ?>
                                 </div>
                                 <div class="col-md-4">
                                     <label for="apellidoPaterno" class="form-label">Apellido Paterno</label>
-                                    <input type="text" class="form-control <?= hasError('apellido_paterno_empleado') ?> <?= hasSuccess('apellido_paterno_empleado') ?>" id="apellidoPaterno" name="apellido_paterno_empleado" value="<?= get_value('apellido_paterno_empleado', 'APELLIDO_PATERNO') ?>">
+                                    <input type="text" class="form-control <?= hasError('apellido_paterno_empleado') ?> <?= hasSuccess('apellido_paterno_empleado') ?>" id="apellidoPaterno" name="apellido_paterno_empleado" value="<?= get_value('apellido_paterno_empleado', 'APELLIDO_PATERNO') ?>" maxlength="255">
                                     <?= showError('apellido_paterno_empleado') ?>
                                 </div>
                                 <div class="col-md-4">
                                     <label for="apellidoMaterno" class="form-label">Apellido Materno</label>
-                                    <input type="text" class="form-control <?= hasError('apellido_materno_empleado') ?> <?= hasSuccess('apellido_materno_empleado') ?>" id="apellidoMaterno" name="apellido_materno_empleado" value="<?= get_value('apellido_materno_empleado', 'APELLIDO_MATERNO') ?>">
+                                    <input type="text" class="form-control <?= hasError('apellido_materno_empleado') ?> <?= hasSuccess('apellido_materno_empleado') ?>" id="apellidoMaterno" name="apellido_materno_empleado" value="<?= get_value('apellido_materno_empleado', 'APELLIDO_MATERNO') ?>" maxlength="255">
                                     <?= showError('apellido_materno_empleado') ?>
                                 </div>
                             </div>
@@ -288,12 +288,12 @@ function getCatalogData($conn, $table, $id_field, $name_field, $where = '') {
                                 </div>
                                 <div class="col-md-4">
                                     <label for="curp" class="form-label">CURP <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control <?= hasError('curp_empleado') ?> <?= hasSuccess('curp_empleado') ?>" id="curp" required name="curp_empleado" value="<?= get_value('curp_empleado', 'CURP_EMPLEADO') ?>">
+                                    <input type="text" class="form-control <?= hasError('curp_empleado') ?>" id="curp" required name="curp_empleado" value="<?= get_value('curp_empleado', 'CURP_EMPLEADO') ?>" minlength="18" maxlength="18" pattern="[A-Z][AEIOUX][A-Z]{2}[0-9]{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01])[HM](?:AS|B[CS]|C[CLMSH]|D[FG]|G[TR]|HG|JC|M[CNS]|N[ETL]|OC|PL|Q[TR]|S[PLR]|T[CSL]|VZ|YN|ZS)[B-DF-HJ-NP-TV-Z]{3}[A-Z0-9]{2}" title="Introduce un CURP válido (18 caracteres)">
                                     <?= showError('curp_empleado') ?>
                                 </div>
                                 <div class="col-md-4">
                                     <label for="rfc" class="form-label">RFC <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control <?= hasError('rfc_empleado') ?> <?= hasSuccess('rfc_empleado') ?>" id="rfc" required name="rfc_empleado" value="<?= get_value('rfc_empleado', 'RFC_EMPLEADO') ?>">
+                                    <input type="text" class="form-control <?= hasError('rfc_empleado') ?>" id="rfc" required name="rfc_empleado" value="<?= get_value('rfc_empleado', 'RFC_EMPLEADO') ?>" minlength="10" maxlength="13" pattern="[A-ZÑ&]{3,4}[0-9]{6}([A-Z0-9]{3})?" title="Introduce un RFC válido (10 a 13 caracteres)">
                                     <?= showError('rfc_empleado') ?>
                                 </div>
                             </div>
@@ -325,17 +325,17 @@ function getCatalogData($conn, $table, $id_field, $name_field, $where = '') {
                             <div class="row g-3">
                                 <div class="col-md-4">
                                     <label for="telefono" class="form-label">Teléfono <span class="text-danger">*</span></label>
-                                    <input type="tel" class="form-control <?= hasError('telefono_empleado') ?> <?= hasSuccess('telefono_empleado') ?>" id="telefono" required name="telefono_empleado" value="<?= get_value('telefono_empleado', 'TELEFONO_EMPLEADO') ?>">
+                                    <input type="tel" class="form-control <?= hasError('telefono_empleado') ?>" id="telefono" required name="telefono_empleado" value="<?= get_value('telefono_empleado', 'TELEFONO_EMPLEADO') ?>" pattern="[0-9]{10}" maxlength="10" title="Introduce 10 dígitos sin espacios ni guiones">
                                     <?= showError('telefono_empleado') ?>
                                 </div>
                                 <div class="col-md-4">
                                     <label for="correoPrincipal" class="form-label">Correo Principal <span class="text-danger">*</span></label>
-                                    <input type="email" class="form-control <?= hasError('correo_principal_empleado') ?> <?= hasSuccess('correo_principal_empleado') ?>" id="correoPrincipal" required name="correo_principal_empleado" value="<?= get_value('correo_principal_empleado', 'correo_principal') ?>">
+                                    <input type="email" class="form-control <?= hasError('correo_principal_empleado') ?>" id="correoPrincipal" required name="correo_principal_empleado" value="<?= get_value('correo_principal_empleado', 'correo_principal') ?>" maxlength="255">
                                     <?= showError('correo_principal_empleado') ?>
                                 </div>
                                 <div class="col-md-4">
                                     <label for="correoSecundario" class="form-label">Correo Secundario</label>
-                                    <input type="email" class="form-control <?= hasError('correo_secundario_empleado') ?> <?= hasSuccess('correo_secundario_empleado') ?>" id="correoSecundario" name="correo_secundario_empleado" value="<?= get_value('correo_secundario_empleado', 'correo_secundario') ?>">
+                                    <input type="email" class="form-control <?= hasError('correo_secundario_empleado') ?>" id="correoSecundario" name="correo_secundario_empleado" value="<?= get_value('correo_secundario_empleado', 'correo_secundario') ?>" maxlength="255">
                                     <?= showError('correo_secundario_empleado') ?>
                                 </div>
                             </div>
@@ -346,24 +346,24 @@ function getCatalogData($conn, $table, $id_field, $name_field, $where = '') {
                             <div class="row g-3">
                                 <div class="col-md-8">
                                     <label for="calle" class="form-label">Calle <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control <?= hasError('calle_empleado') ?> <?= hasSuccess('calle_empleado') ?>" id="calle" required name="calle_empleado" value="<?= get_value('calle_empleado', 'CALLE') ?>">
+                                    <input type="text" class="form-control <?= hasError('calle_empleado') ?> <?= hasSuccess('calle_empleado') ?>" id="calle" required name="calle_empleado" value="<?= get_value('calle_empleado', 'CALLE') ?>" maxlength="255">
                                     <?= showError('calle_empleado') ?>
                                 </div>
                                 <div class="col-md-2">
                                     <label for="numeroExterior" class="form-label">No. Exterior <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control <?= hasError('numero_exterior_empleado') ?> <?= hasSuccess('numero_exterior_empleado') ?>" id="numeroExterior" required name="numero_exterior_empleado" value="<?= get_value('numero_exterior_empleado', 'NUMERO_EXTERIOR') ?>">
+                                    <input type="text" class="form-control <?= hasError('numero_exterior_empleado') ?> <?= hasSuccess('numero_exterior_empleado') ?>" id="numeroExterior" required name="numero_exterior_empleado" value="<?= get_value('numero_exterior_empleado', 'NUMERO_EXTERIOR') ?>" maxlength="255">
                                     <?= showError('numero_exterior_empleado') ?>
                                 </div>
                                 <div class="col-md-2">
                                     <label for="numeroInterior" class="form-label">No. Interior</label>
-                                    <input type="text" class="form-control <?= hasError('numero_interior_empleado') ?> <?= hasSuccess('numero_interior_empleado') ?>" id="numeroInterior" name="numero_interior_empleado" value="<?= get_value('numero_interior_empleado', 'NUMERO_INTERIOR') ?>">
+                                    <input type="text" class="form-control <?= hasError('numero_interior_empleado') ?> <?= hasSuccess('numero_interior_empleado') ?>" id="numeroInterior" name="numero_interior_empleado" value="<?= get_value('numero_interior_empleado', 'NUMERO_INTERIOR') ?>" maxlength="255">
                                     <?= showError('numero_interior_empleado') ?>
                                 </div>
                             </div>
                             <div class="row g-3 mt-2">
                                 <div class="col-md-12">
                                     <label for="colonia" class="form-label">Colonia <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control <?= hasError('colonia_empleado') ?> <?= hasSuccess('colonia_empleado') ?>" id="colonia" required name="colonia_empleado" value="<?= get_value('colonia_empleado', 'COLONIA') ?>">
+                                    <input type="text" class="form-control <?= hasError('colonia_empleado') ?> <?= hasSuccess('colonia_empleado') ?>" id="colonia" required name="colonia_empleado" value="<?= get_value('colonia_empleado', 'COLONIA') ?>" maxlength="255">
                                     <?= showError('colonia_empleado') ?>
                                 </div>
                             </div>
